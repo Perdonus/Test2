@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.perdonus.r34viewer"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.perdonus.r34viewer"
         minSdk = 28
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
 
@@ -44,6 +44,10 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 
     packaging {

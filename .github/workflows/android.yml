@@ -9,6 +9,8 @@ on:
 jobs:
   build-debug:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -18,17 +20,54 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "17"
           cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest
+        id: unit-tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ./gradlew testDebugUnitTest --stacktrace --info | tee gradle-test.log
+
+      - name: Publish test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r34-native-test-diagnostics
+          path: |
+            gradle-test.log
+            app/build/reports/tests/**
+            app/build/test-results/**
+            build/reports/**
+
+      - name: Summarize unit test result
+        if: always()
+        run: |
+          if [ "${{ steps.unit-tests.outcome }}" = "success" ]; then
+            echo "Unit tests passed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "Unit tests failed. Download the 'r34-native-test-diagnostics' artifact for Gradle output and reports." >> "$GITHUB_STEP_SUMMARY"
+          if find app/build/test-results -name '*.xml' -type f | grep -q .; then
+            failures=$(grep -Rho 'failures=\"[0-9]\\+\"' app/build/test-results | sed 's/[^0-9]//g' | awk '{s+=$1} END {print s+0}')
+            errors=$(grep -Rho 'errors=\"[0-9]\\+\"' app/build/test-results | sed 's/[^0-9]//g' | awk '{s+=$1} END {print s+0}')
+            echo "Reported failures: ${failures}, errors: ${errors}." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Unit tests failed with ${failures} failures and ${errors} errors. See artifact r34-native-test-diagnostics."
+          else
+            echo "No XML test reports were generated, so the failure likely happened during Kotlin/Compose/Gradle compilation before test execution." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Gradle failed before XML test reports were generated. See artifact r34-native-test-diagnostics."
+          fi
+
+      - name: Fail workflow on unit test errors
+        if: steps.unit-tests.outcome == 'failure'
+        run: exit 1
 
       - name: Assemble debug APK
         run: ./gradlew assembleDebug

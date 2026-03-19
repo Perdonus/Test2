@@ -71,7 +71,7 @@ class SearchViewModel(
         request to appSettings
     }.flatMapLatest { (request, appSettings) ->
         if (request.query.isBlank() || !appSettings.hasApiCredentials) {
-            flowOf(PagingData.empty())
+            flowOf(PagingData.empty<Rule34Post>())
         } else {
             postsRepository.search(request.query, appSettings)
         }

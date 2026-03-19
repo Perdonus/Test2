@@ -32,8 +32,8 @@ ANDROID_SDK_ROOT=/usr/lib/android-sdk ./gradlew testDebugUnitTest assembleDebug
 ```bash
 yes | ANDROID_SDK_ROOT=/usr/lib/android-sdk sdkmanager \
   "platform-tools" \
-  "platforms;android-35" \
-  "build-tools;35.0.1"
+  "platforms;android-34" \
+  "build-tools;34.0.0"
 ```
 
 ## CI
