@@ -56,7 +56,7 @@ fun R34App() {
 
     val imageLoader = remember(settings.proxyConfig.signature()) {
         ImageLoader.Builder(context)
-            .okHttpClient(NetworkClientFactory().create(settings))
+            .okHttpClient { NetworkClientFactory().create(settings) }
             .crossfade(true)
             .build()
     }
