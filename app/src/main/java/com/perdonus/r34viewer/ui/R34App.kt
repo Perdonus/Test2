@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -17,7 +16,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.paging.compose.collectAsLazyPagingItems
-import coil.ImageLoader
 import com.perdonus.r34viewer.ui.navigation.AppDestination
 import com.perdonus.r34viewer.ui.navigation.topLevelDestinations
 import com.perdonus.r34viewer.ui.screens.FavoritesScreen
@@ -52,13 +50,9 @@ fun R34App() {
     val settingsForm by settingsViewModel.state.collectAsStateWithLifecycle()
 
     val pagingItems = searchViewModel.pagingData.collectAsLazyPagingItems()
-    val context = LocalContext.current
 
-    val imageLoader = remember(settings.proxyConfig.signature()) {
-        ImageLoader.Builder(context)
-            .okHttpClient { NetworkClientFactory().create(settings) }
-            .crossfade(true)
-            .build()
+    val okHttpClient = remember(settings.proxyConfig.signature()) {
+        NetworkClientFactory().create(settings)
     }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -101,7 +95,7 @@ fun R34App() {
                     favoriteIds = favoriteIds,
                     settings = settings,
                     feedbackMessage = feedbackMessage,
-                    imageLoader = imageLoader,
+                    okHttpClient = okHttpClient,
                     onQueryChanged = searchViewModel::updateQuery,
                     onSearch = searchViewModel::submitSearch,
                     onSaveSearch = searchViewModel::saveCurrentSearch,
@@ -121,7 +115,7 @@ fun R34App() {
             composable(AppDestination.Favorites.route) {
                 FavoritesScreen(
                     favorites = favorites,
-                    imageLoader = imageLoader,
+                    okHttpClient = okHttpClient,
                     onOpenPost = { post ->
                         appViewModel.selectPost(post)
                         navController.navigate(AppDestination.Details.route)
@@ -168,8 +162,7 @@ fun R34App() {
                 PostDetailScreen(
                     post = selectedPost,
                     isFavorite = selectedPost?.id?.let(favoriteIds::contains) == true,
-                    imageLoader = imageLoader,
-                    settings = settings,
+                    okHttpClient = okHttpClient,
                     onBack = { navController.popBackStack() },
                     onToggleFavorite = { post ->
                         searchViewModel.toggleFavorite(post)

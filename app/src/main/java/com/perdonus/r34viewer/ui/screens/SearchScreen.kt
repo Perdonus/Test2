@@ -39,10 +39,10 @@ import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.LoadState.NotLoading
 import androidx.paging.compose.LazyPagingItems
-import coil.ImageLoader
 import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.data.settings.AppSettings
 import com.perdonus.r34viewer.ui.components.PostCard
+import okhttp3.OkHttpClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,7 +52,7 @@ fun SearchScreen(
     favoriteIds: Set<Int>,
     settings: AppSettings,
     feedbackMessage: String?,
-    imageLoader: ImageLoader,
+    okHttpClient: OkHttpClient,
     onQueryChanged: (String) -> Unit,
     onSearch: () -> Unit,
     onSaveSearch: () -> Unit,
@@ -213,7 +213,7 @@ fun SearchScreen(
                     PostCard(
                         post = post,
                         isFavorite = post.id in favoriteIds,
-                        imageLoader = imageLoader,
+                        okHttpClient = okHttpClient,
                         onOpenPost = onOpenPost,
                         onToggleFavorite = onToggleFavorite,
                     )

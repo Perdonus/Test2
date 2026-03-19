@@ -15,15 +15,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import coil.ImageLoader
 import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.ui.components.PostCard
+import okhttp3.OkHttpClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(
     favorites: List<Rule34Post>,
-    imageLoader: ImageLoader,
+    okHttpClient: OkHttpClient,
     onOpenPost: (Rule34Post) -> Unit,
     onToggleFavorite: (Rule34Post) -> Unit,
 ) {
@@ -53,7 +53,7 @@ fun FavoritesScreen(
                 PostCard(
                     post = post,
                     isFavorite = true,
-                    imageLoader = imageLoader,
+                    okHttpClient = okHttpClient,
                     onOpenPost = onOpenPost,
                     onToggleFavorite = onToggleFavorite,
                 )

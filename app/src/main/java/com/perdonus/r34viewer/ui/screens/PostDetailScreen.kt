@@ -37,11 +37,9 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
-import coil.ImageLoader
-import coil.compose.AsyncImage
 import com.perdonus.r34viewer.data.model.Rule34Post
-import com.perdonus.r34viewer.data.settings.AppSettings
-import com.perdonus.r34viewer.data.remote.NetworkClientFactory
+import com.perdonus.r34viewer.ui.components.RemoteImage
+import okhttp3.OkHttpClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @OptIn(ExperimentalLayoutApi::class)
@@ -50,8 +48,7 @@ import com.perdonus.r34viewer.data.remote.NetworkClientFactory
 fun PostDetailScreen(
     post: Rule34Post?,
     isFavorite: Boolean,
-    imageLoader: ImageLoader,
-    settings: AppSettings,
+    okHttpClient: OkHttpClient,
     onBack: () -> Unit,
     onToggleFavorite: (Rule34Post) -> Unit,
     onTagSelected: (String) -> Unit,
@@ -77,10 +74,7 @@ fun PostDetailScreen(
     }
 
     val context = LocalContext.current
-    val okHttpClient = remember(settings.proxyConfig.signature()) {
-        NetworkClientFactory().create(settings)
-    }
-    val player = remember(post.fileUrl, settings.proxyConfig.signature()) {
+    val player = remember(post.fileUrl, okHttpClient) {
         if (!post.isVideo) return@remember null
         val mediaSourceFactory = DefaultMediaSourceFactory(
             OkHttpDataSource.Factory(okHttpClient),
@@ -136,12 +130,12 @@ fun PostDetailScreen(
                 },
             )
         } else {
-            AsyncImage(
+            RemoteImage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                model = post.fileUrl,
-                imageLoader = imageLoader,
+                url = post.fileUrl,
+                okHttpClient = okHttpClient,
                 contentDescription = "Post ${post.id}",
                 contentScale = ContentScale.FillWidth,
             )

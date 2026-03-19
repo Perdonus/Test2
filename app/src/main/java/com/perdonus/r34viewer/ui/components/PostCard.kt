@@ -31,15 +31,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.ImageLoader
-import coil.compose.AsyncImage
 import com.perdonus.r34viewer.data.model.Rule34Post
+import okhttp3.OkHttpClient
 
 @Composable
 fun PostCard(
     post: Rule34Post,
     isFavorite: Boolean,
-    imageLoader: ImageLoader,
+    okHttpClient: OkHttpClient,
     onOpenPost: (Rule34Post) -> Unit,
     onToggleFavorite: (Rule34Post) -> Unit,
     modifier: Modifier = Modifier,
@@ -58,12 +57,12 @@ fun PostCard(
                 .fillMaxWidth()
                 .height(260.dp),
         ) {
-            AsyncImage(
+            RemoteImage(
                 modifier = Modifier.fillMaxSize(),
-                model = post.thumbnailUrl,
-                imageLoader = imageLoader,
-                contentScale = ContentScale.Crop,
+                url = post.thumbnailUrl,
+                okHttpClient = okHttpClient,
                 contentDescription = "Post ${post.id}",
+                contentScale = ContentScale.Crop,
             )
 
             Box(
