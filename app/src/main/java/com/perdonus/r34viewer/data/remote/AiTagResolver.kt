@@ -48,24 +48,29 @@ class AiTagResolver(
 
         val client = networkClientFactory.create(settings)
         val body = buildJsonObject {
-            put("model", ServiceSecrets.AI_MODEL)
-            put("temperature", 0.1)
+            put("model", JsonPrimitive(ServiceSecrets.AI_MODEL))
+            put("temperature", JsonPrimitive(0.1))
             put(
                 "messages",
                 buildJsonArray {
                     add(
                         buildJsonObject {
-                            put("role", "system")
+                            put("role", JsonPrimitive("system"))
                             put(
                                 "content",
-                                "You convert noisy human queries into booru tags. Return JSON only with exactly two top-level keys: query and explanation. Query must be a single string with space separated booru tags. Explanation must be a short Russian sentence. Prefer canonical booru tags, transliterate Cyrillic names, fix typos, for anime character names prefer surname_name style when known, keep tags lowercase with underscores, do not add rating tags, do not add AI filters, do not add markdown.",
+                                JsonPrimitive(
+                                    "You convert noisy human queries into booru tags. Return JSON only with exactly two top-level keys: query and explanation. Query must be a single string with space separated booru tags. Explanation must be a short Russian sentence. Prefer canonical booru tags, transliterate Cyrillic names, fix typos, for anime character names prefer surname_name style when known, keep tags lowercase with underscores, do not add rating tags, do not add AI filters, do not add markdown.",
+                                ),
                             )
                         },
                     )
                     add(
                         buildJsonObject {
-                            put("role", "user")
-                            put("content", "Service: ${service.displayName}. Raw query: $normalizedQuery")
+                            put("role", JsonPrimitive("user"))
+                            put(
+                                "content",
+                                JsonPrimitive("Service: ${service.displayName}. Raw query: $normalizedQuery"),
+                            )
                         },
                     )
                 },
@@ -115,8 +120,8 @@ class AiTagResolver(
             ?: throw AiTagResolverException("AI вернул невалидный JSON.")
 
         return AiResolvedQuery(
-            resolvedQuery = (root["query"] as? JsonPrimitive)?.contentOrNull().orEmpty().trim(),
-            explanation = (root["explanation"] as? JsonPrimitive)?.contentOrNull()?.trim(),
+            resolvedQuery = (root["query"] as? JsonPrimitive)?.contentOrNull.orEmpty().trim(),
+            explanation = (root["explanation"] as? JsonPrimitive)?.contentOrNull?.trim(),
         )
     }
 }
