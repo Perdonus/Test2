@@ -105,42 +105,10 @@ class SearchViewModel(
         if (rawQuery.isBlank() || _isResolvingQuery.value) return
 
         viewModelScope.launch {
-            _isResolvingQuery.value = true
-            try {
-                val service = settings.value.selectedService
-                val resolution = aiTagResolver.resolve(
-                    settings = settings.value,
-                    service = service,
-                    rawQuery = rawQuery,
-                    mode = ResolveMode.AUTO,
-                )
-                val finalQuery = resolution.resolvedQuery.ifBlank { rawQuery }
-                _queryText.value = finalQuery
-                _feedbackMessage.value = buildString {
-                    if (finalQuery != rawQuery) {
-                        append("Подобран запрос для ${service.displayName}: $finalQuery")
-                    }
-                    resolution.explanation?.takeIf { it.isNotBlank() }?.let { explanation ->
-                        if (isNotEmpty()) append(". ")
-                        append(explanation)
-                    }
-                }.ifBlank { null }
-                _searchRequest.value = SearchRequest(
-                    query = finalQuery,
-                    originQuery = rawQuery,
-                    nonce = _searchRequest.value.nonce + 1,
-                )
-            } catch (_: AiTagResolverException) {
-                _queryText.value = rawQuery
-                _feedbackMessage.value = "Не удалось уточнить запрос, ищу как есть."
-                _searchRequest.value = SearchRequest(
-                    query = rawQuery,
-                    originQuery = rawQuery,
-                    nonce = _searchRequest.value.nonce + 1,
-                )
-            } finally {
-                _isResolvingQuery.value = false
-            }
+            executeResolvedSearch(
+                rawQuery = rawQuery,
+                mode = ResolveMode.AUTO,
+            )
         }
     }
 
@@ -212,11 +180,11 @@ class SearchViewModel(
             val currentRequest = _searchRequest.value
             val activeQuery = currentRequest.originQuery.ifBlank { currentRequest.query }.trim()
             if (activeQuery.isNotBlank()) {
-                val requiresAiReResolve =
+                val requiresServiceResolution =
                     currentRequest.originQuery.isNotBlank() &&
                         currentRequest.originQuery.trim() != currentRequest.query.trim()
 
-                if (!requiresAiReResolve) {
+                if (!requiresServiceResolution) {
                     _queryText.value = activeQuery
                     _feedbackMessage.value = null
                     _searchRequest.value = SearchRequest(
@@ -227,41 +195,12 @@ class SearchViewModel(
                     return@launch
                 }
 
-                _isResolvingQuery.value = true
-                try {
-                    val resolution = aiTagResolver.resolve(
-                        settings = settings.value,
-                        service = service,
-                        rawQuery = activeQuery,
-                        mode = ResolveMode.AI,
-                    )
-                    val finalQuery = resolution.resolvedQuery.ifBlank { activeQuery }
-                    _queryText.value = finalQuery
-                    _feedbackMessage.value = buildString {
-                        if (finalQuery != activeQuery) {
-                            append("Подобран запрос для ${service.displayName}: $finalQuery")
-                        }
-                        resolution.explanation?.takeIf { it.isNotBlank() }?.let { explanation ->
-                            if (isNotEmpty()) append(". ")
-                            append(explanation)
-                        }
-                    }.ifBlank { null }
-                    _searchRequest.value = SearchRequest(
-                        query = finalQuery,
-                        originQuery = activeQuery,
-                        nonce = _searchRequest.value.nonce + 1,
-                    )
-                } catch (_: AiTagResolverException) {
-                    _queryText.value = activeQuery
-                    _feedbackMessage.value = "Не удалось адаптировать AI-запрос под ${service.displayName}, ищу как есть."
-                    _searchRequest.value = SearchRequest(
-                        query = activeQuery,
-                        originQuery = activeQuery,
-                        nonce = _searchRequest.value.nonce + 1,
-                    )
-                } finally {
-                    _isResolvingQuery.value = false
-                }
+                executeResolvedSearch(
+                    rawQuery = activeQuery,
+                    mode = ResolveMode.AUTO,
+                    serviceOverride = service,
+                    fallbackMessage = "Не удалось адаптировать запрос под ${service.displayName}, ищу как есть.",
+                )
             }
         }
     }
@@ -281,13 +220,16 @@ class SearchViewModel(
     private suspend fun executeResolvedSearch(
         rawQuery: String,
         mode: ResolveMode,
+        serviceOverride: BooruService? = null,
+        fallbackMessage: String? = null,
     ) {
         _isResolvingQuery.value = true
         try {
             val currentSettings = settings.value
+            val targetService = serviceOverride ?: currentSettings.selectedService
             val resolution = aiTagResolver.resolve(
                 settings = currentSettings,
-                service = currentSettings.selectedService,
+                service = targetService,
                 rawQuery = rawQuery,
                 mode = mode,
             )
@@ -296,7 +238,7 @@ class SearchViewModel(
             _feedbackMessage.value = buildString {
                 when {
                     mode == ResolveMode.AI -> append("ИИ-поиск: $finalQuery")
-                    finalQuery != rawQuery -> append("Подобран запрос для ${currentSettings.selectedService.displayName}: $finalQuery")
+                    finalQuery != rawQuery -> append("Подобран запрос для ${targetService.displayName}: $finalQuery")
                 }
                 resolution.explanation?.takeIf { it.isNotBlank() }?.let { explanation ->
                     if (isNotEmpty()) append(". ")
@@ -313,7 +255,7 @@ class SearchViewModel(
             _feedbackMessage.value = if (mode == ResolveMode.AI) {
                 exception.message ?: "ИИ-поиск не сработал."
             } else {
-                "Не удалось уточнить запрос, ищу как есть."
+                fallbackMessage ?: "Не удалось уточнить запрос, ищу как есть."
             }
             _searchRequest.value = SearchRequest(
                 query = rawQuery,
