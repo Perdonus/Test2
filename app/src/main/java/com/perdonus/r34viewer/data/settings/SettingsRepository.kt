@@ -52,6 +52,9 @@ class SettingsRepositoryImpl(
             hideAiContent = local.hideAiContent,
             proxyConfig = remote.proxyConfig,
             serviceApiConfig = remote.serviceApiConfig,
+            preferences = remote.preferences,
+            preferenceCatalog = remote.preferenceCatalog,
+            preferenceTitles = remote.preferenceTitles,
         )
     }.distinctUntilChanged()
 

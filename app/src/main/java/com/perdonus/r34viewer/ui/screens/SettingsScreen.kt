@@ -45,6 +45,7 @@ fun SettingsScreen(
     onAiModelChanged: (String) -> Unit,
     onRefreshCacheStats: () -> Unit,
     onClearImageCache: () -> Unit,
+    onOpenPreferences: () -> Unit,
     onSave: () -> Unit,
 ) {
     LaunchedEffect(Unit) {
@@ -200,6 +201,27 @@ fun SettingsScreen(
                         onValueChange = onAiModelChanged,
                         label = "Модель",
                     )
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("Предпочтения", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Отдельное меню для тегов, которые хочется видеть чаще или скрывать во всех поисках.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Button(
+                        onClick = onOpenPreferences,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Открыть предпочтения")
+                    }
                 }
             }
 

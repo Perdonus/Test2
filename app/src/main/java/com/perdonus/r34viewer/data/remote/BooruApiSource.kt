@@ -37,7 +37,11 @@ class BooruApiSource(
         limit: Int,
     ): List<Rule34Post> = withContext(Dispatchers.IO) {
         val service = settings.selectedService
-        val query = SearchQueryBuilder.build(rawQuery, settings.hideAiContent)
+        val query = SearchQueryBuilder.build(
+            query = rawQuery,
+            hideAiContent = settings.hideAiContent,
+            preferences = settings.preferences,
+        )
         validateServiceApiConfig(service, settings.serviceApiConfig)
         val client = networkClientFactory.create(settings)
         val request = Request.Builder()

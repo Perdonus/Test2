@@ -24,12 +24,14 @@ import com.perdonus.r34viewer.ui.navigation.AppDestination
 import com.perdonus.r34viewer.ui.navigation.topLevelDestinations
 import com.perdonus.r34viewer.ui.screens.FavoritesScreen
 import com.perdonus.r34viewer.ui.screens.PostDetailScreen
+import com.perdonus.r34viewer.ui.screens.PreferencesScreen
 import com.perdonus.r34viewer.ui.screens.SavedSearchesScreen
 import com.perdonus.r34viewer.ui.screens.SearchScreen
 import com.perdonus.r34viewer.ui.screens.SettingsScreen
 import com.perdonus.r34viewer.ui.viewmodel.AppViewModel
 import com.perdonus.r34viewer.ui.viewmodel.AppViewModelProvider
 import com.perdonus.r34viewer.ui.viewmodel.FavoritesViewModel
+import com.perdonus.r34viewer.ui.viewmodel.PreferencesViewModel
 import com.perdonus.r34viewer.ui.viewmodel.SavedSearchesViewModel
 import com.perdonus.r34viewer.ui.viewmodel.SearchViewModel
 import com.perdonus.r34viewer.ui.viewmodel.SettingsViewModel
@@ -43,6 +45,7 @@ fun R34App() {
     val searchViewModel: SearchViewModel = viewModel(factory = AppViewModelProvider.Factory)
     val favoritesViewModel: FavoritesViewModel = viewModel(factory = AppViewModelProvider.Factory)
     val savedSearchesViewModel: SavedSearchesViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    val preferencesViewModel: PreferencesViewModel = viewModel(factory = AppViewModelProvider.Factory)
     val settingsViewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory)
 
     val selectedPost by appViewModel.selectedPost.collectAsStateWithLifecycle()
@@ -54,6 +57,7 @@ fun R34App() {
     val settings by searchViewModel.settings.collectAsStateWithLifecycle()
     val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
     val savedSearches by savedSearchesViewModel.savedSearches.collectAsStateWithLifecycle()
+    val preferencesState by preferencesViewModel.state.collectAsStateWithLifecycle()
     val settingsForm by settingsViewModel.state.collectAsStateWithLifecycle()
 
     val pagingItems = searchViewModel.pagingData.collectAsLazyPagingItems()
@@ -67,7 +71,9 @@ fun R34App() {
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val showBottomBar = currentRoute != AppDestination.Details.route
+    val showBottomBar =
+        currentRoute != AppDestination.Details.route &&
+            currentRoute != AppDestination.Preferences.route
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -178,7 +184,25 @@ fun R34App() {
                     onProxyPasswordChanged = settingsViewModel::updateProxyPassword,
                     onRefreshCacheStats = settingsViewModel::refreshCacheStats,
                     onClearImageCache = settingsViewModel::clearImageCache,
+                    onOpenPreferences = {
+                        navController.navigate(AppDestination.Preferences.route)
+                    },
                     onSave = settingsViewModel::save,
+                )
+            }
+
+            composable(AppDestination.Preferences.route) {
+                PreferencesScreen(
+                    state = preferencesState,
+                    onBack = { navController.popBackStack() },
+                    onQueryChanged = preferencesViewModel::updateCatalogQuery,
+                    onRefreshCatalog = preferencesViewModel::refreshCatalog,
+                    onSearch = preferencesViewModel::searchCatalog,
+                    onAddPreferred = preferencesViewModel::addPreferred,
+                    onAddBlocked = preferencesViewModel::addBlocked,
+                    onRemovePreferred = preferencesViewModel::removePreferred,
+                    onRemoveBlocked = preferencesViewModel::removeBlocked,
+                    onDismissMessage = preferencesViewModel::clearMessage,
                 )
             }
 

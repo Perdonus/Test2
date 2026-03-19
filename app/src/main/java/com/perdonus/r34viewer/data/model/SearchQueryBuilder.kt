@@ -1,24 +1,50 @@
 package com.perdonus.r34viewer.data.model
 
+import com.perdonus.r34viewer.data.settings.ContentPreferences
+
 object SearchQueryBuilder {
     private val whitespaceRegex = "\\s+".toRegex()
 
-    fun build(query: String, hideAiContent: Boolean): String {
-        val tokens = query
+    fun build(
+        query: String,
+        hideAiContent: Boolean,
+        preferences: ContentPreferences,
+    ): String {
+        val preferredTags = linkedSetOf<String>()
+        val blockedTags = linkedSetOf<String>()
+
+        query
             .trim()
             .split(whitespaceRegex)
             .filter { it.isNotBlank() }
-            .toMutableList()
-
-        if (hideAiContent) {
-            if ("-ai_generated" !in tokens) {
-                tokens += "-ai_generated"
+            .forEach { token ->
+                if (token.startsWith("-") && token.length > 1) {
+                    blockedTags += token.removePrefix("-")
+                } else {
+                    preferredTags += token
+                }
             }
-            if ("-ai_assisted" !in tokens) {
-                tokens += "-ai_assisted"
+
+        preferences.preferredTags.forEach { tag ->
+            if (tag.isNotBlank() && tag !in blockedTags) {
+                preferredTags += tag
+            }
+        }
+        preferences.blockedTags.forEach { tag ->
+            if (tag.isNotBlank()) {
+                preferredTags.remove(tag)
+                blockedTags += tag
             }
         }
 
-        return tokens.joinToString(" ")
+        if (hideAiContent) {
+            blockedTags += "ai_generated"
+            blockedTags += "ai_assisted"
+        }
+
+        return buildList {
+            addAll(preferredTags)
+            addAll(blockedTags.map { "-$it" })
+        }.joinToString(" ")
     }
 }

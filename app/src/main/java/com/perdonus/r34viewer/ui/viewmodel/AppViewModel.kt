@@ -18,10 +18,13 @@ import com.perdonus.r34viewer.data.remote.AiTagResolverException
 import com.perdonus.r34viewer.data.remote.ResolveMode
 import com.perdonus.r34viewer.data.repository.FavoritesRepository
 import com.perdonus.r34viewer.data.repository.PostsRepository
+import com.perdonus.r34viewer.data.repository.PreferencesRepository
 import com.perdonus.r34viewer.data.repository.SavedSearchRepository
 import com.perdonus.r34viewer.data.settings.AppSettings
 import com.perdonus.r34viewer.data.settings.AiApiConfig
+import com.perdonus.r34viewer.data.settings.ContentPreferences
 import com.perdonus.r34viewer.data.settings.KonachanApiConfig
+import com.perdonus.r34viewer.data.settings.PreferenceCatalogItem
 import com.perdonus.r34viewer.data.settings.ProxyConfig
 import com.perdonus.r34viewer.data.settings.ProxyType
 import com.perdonus.r34viewer.data.settings.Rule34ApiConfig
@@ -329,6 +332,157 @@ class SavedSearchesViewModel(
     }
 }
 
+data class PreferencesUiState(
+    val selectedService: BooruService = BooruService.RULE34,
+    val preferredTags: List<String> = emptyList(),
+    val blockedTags: List<String> = emptyList(),
+    val catalogQuery: String = "",
+    val catalogItems: List<PreferenceCatalogItem> = emptyList(),
+    val titleByTag: Map<String, String> = emptyMap(),
+    val isSearching: Boolean = false,
+    val message: String? = null,
+)
+
+class PreferencesViewModel(
+    private val settingsRepository: SettingsRepository,
+    private val preferencesRepository: PreferencesRepository,
+) : ViewModel() {
+    private val settings = settingsRepository.settings.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        AppSettings(),
+    )
+
+    private val _catalogQuery = MutableStateFlow("")
+    private val _catalogItems = MutableStateFlow(emptyList<PreferenceCatalogItem>())
+    private val _isSearching = MutableStateFlow(false)
+    private val _message = MutableStateFlow<String?>(null)
+
+    val state = combine(
+        settings,
+        _catalogQuery,
+        _catalogItems,
+        _isSearching,
+        _message,
+    ) { appSettings, query, items, isSearching, message ->
+        val titleByTag = buildMap {
+            putAll(appSettings.preferenceTitles)
+            items.forEach { put(it.tag, it.titleRu) }
+        }
+        PreferencesUiState(
+            selectedService = appSettings.selectedService,
+            preferredTags = appSettings.preferences.preferredTags,
+            blockedTags = appSettings.preferences.blockedTags,
+            catalogQuery = query,
+            catalogItems = items,
+            titleByTag = titleByTag,
+            isSearching = isSearching,
+            message = message,
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        PreferencesUiState(),
+    )
+
+    fun updateCatalogQuery(value: String) {
+        _catalogQuery.value = value
+        if (value.isBlank()) {
+            _catalogItems.value = emptyList()
+        }
+    }
+
+    fun clearMessage() {
+        _message.value = null
+    }
+
+    fun refreshCatalog() {
+        searchCatalogInternal(showEmptyMessage = false)
+    }
+
+    fun searchCatalog() {
+        searchCatalogInternal(showEmptyMessage = true)
+    }
+
+    private fun searchCatalogInternal(showEmptyMessage: Boolean) {
+        val query = _catalogQuery.value.trim()
+        if (_isSearching.value) return
+
+        viewModelScope.launch {
+            val selectedService = settings.value.selectedService
+            _isSearching.value = true
+            _message.value = null
+            runCatching {
+                preferencesRepository.refresh()
+                preferencesRepository.searchCatalog(
+                    service = selectedService,
+                    query = query,
+                )
+            }.onSuccess { items ->
+                _catalogItems.value = items
+                _message.value = if (items.isEmpty() && showEmptyMessage) {
+                    "По тегам ничего не нашлось для ${selectedService.displayName}."
+                } else {
+                    null
+                }
+            }.onFailure { error ->
+                _message.value = error.message ?: "Не удалось получить список тегов."
+            }
+            _isSearching.value = false
+        }
+    }
+
+    fun addPreferred(tag: String) {
+        val current = settings.value.preferences
+        savePreferences(
+            ContentPreferences(
+                preferredTags = (current.preferredTags + tag).distinct(),
+                blockedTags = current.blockedTags.filterNot { it == tag },
+            ),
+        )
+    }
+
+    fun addBlocked(tag: String) {
+        val current = settings.value.preferences
+        savePreferences(
+            ContentPreferences(
+                preferredTags = current.preferredTags.filterNot { it == tag },
+                blockedTags = (current.blockedTags + tag).distinct(),
+            ),
+        )
+    }
+
+    fun removePreferred(tag: String) {
+        val current = settings.value.preferences
+        savePreferences(
+            current.copy(
+                preferredTags = current.preferredTags.filterNot { it == tag },
+            ),
+        )
+    }
+
+    fun removeBlocked(tag: String) {
+        val current = settings.value.preferences
+        savePreferences(
+            current.copy(
+                blockedTags = current.blockedTags.filterNot { it == tag },
+            ),
+        )
+    }
+
+    private fun savePreferences(preferences: ContentPreferences) {
+        viewModelScope.launch {
+            runCatching {
+                preferencesRepository.save(preferences)
+            }.onSuccess {
+                _message.value = "Предпочтения сохранены на сервере."
+            }.onFailure { error ->
+                _message.value = error.message ?: "Не удалось сохранить предпочтения."
+            }
+        }
+    }
+}
+
 data class SettingsFormState(
     val isLoaded: Boolean = false,
     val rule34UserId: String = "",
@@ -502,6 +656,12 @@ object AppViewModelProvider {
         initializer {
             SavedSearchesViewModel(
                 savedSearchRepository = r34Application().container.savedSearchRepository,
+            )
+        }
+        initializer {
+            PreferencesViewModel(
+                settingsRepository = r34Application().container.settingsRepository,
+                preferencesRepository = r34Application().container.preferencesRepository,
             )
         }
         initializer {

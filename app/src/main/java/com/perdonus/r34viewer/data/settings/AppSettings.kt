@@ -46,6 +46,17 @@ data class AiApiConfig(
     val model: String = "",
 )
 
+data class ContentPreferences(
+    val preferredTags: List<String> = emptyList(),
+    val blockedTags: List<String> = emptyList(),
+)
+
+data class PreferenceCatalogItem(
+    val tag: String,
+    val titleRu: String,
+    val postCount: Int,
+)
+
 data class ServiceApiConfig(
     val rule34: Rule34ApiConfig = Rule34ApiConfig(),
     val konachan: KonachanApiConfig = KonachanApiConfig(),
@@ -57,4 +68,7 @@ data class AppSettings(
     val hideAiContent: Boolean = false,
     val proxyConfig: ProxyConfig = ProxyConfig(),
     val serviceApiConfig: ServiceApiConfig = ServiceApiConfig(),
+    val preferences: ContentPreferences = ContentPreferences(),
+    val preferenceCatalog: List<PreferenceCatalogItem> = emptyList(),
+    val preferenceTitles: Map<String, String> = emptyMap(),
 )

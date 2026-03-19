@@ -5,7 +5,9 @@ import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.PostMediaType
 import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.data.settings.AiApiConfig
+import com.perdonus.r34viewer.data.settings.ContentPreferences
 import com.perdonus.r34viewer.data.settings.KonachanApiConfig
+import com.perdonus.r34viewer.data.settings.PreferenceCatalogItem
 import com.perdonus.r34viewer.data.settings.ProxyConfig
 import com.perdonus.r34viewer.data.settings.ProxyType
 import com.perdonus.r34viewer.data.settings.Rule34ApiConfig
@@ -52,6 +54,9 @@ data class RuleServerSnapshot(
     val savedSearches: List<SavedSearchEntity> = emptyList(),
     val proxyConfig: ProxyConfig = ProxyConfig(),
     val serviceApiConfig: ServiceApiConfig = ServiceApiConfig(),
+    val preferences: ContentPreferences = ContentPreferences(),
+    val preferenceCatalog: List<PreferenceCatalogItem> = emptyList(),
+    val preferenceTitles: Map<String, String> = emptyMap(),
 )
 
 class RuleServerException(message: String) : Exception(message)
@@ -92,6 +97,9 @@ class RuleServerStore {
             savedSearches = root["savedSearches"].jsonArrayOrEmpty().mapNotNull { it.asSavedSearchOrNull() },
             proxyConfig = root["proxy"].asProxyConfig(),
             serviceApiConfig = root["apiConfig"].asServiceApiConfig(),
+            preferences = root["preferences"].asContentPreferences(),
+            preferenceCatalog = root["preferenceCatalog"].jsonArrayOrEmpty().mapNotNull { it.asPreferenceCatalogItemOrNull() },
+            preferenceTitles = root["preferenceTitles"].asStringMap(),
         )
     }
 
@@ -230,6 +238,34 @@ class RuleServerStore {
         serviceConfig
     }
 
+    suspend fun updatePreferences(preferences: ContentPreferences): ContentPreferences = withContext(Dispatchers.IO) {
+        val root = postJson(
+            path = "/preferences",
+            body = buildJsonObject {
+                put("preferredTags", JsonArray(preferences.preferredTags.map(::JsonPrimitive)))
+                put("blockedTags", JsonArray(preferences.blockedTags.map(::JsonPrimitive)))
+            },
+        )
+        val updated = root["preferences"].asContentPreferences()
+        _state.value = _state.value.copy(
+            isLoaded = true,
+            preferences = updated,
+            preferenceCatalog = root["preferenceCatalog"].jsonArrayOrEmpty().mapNotNull { it.asPreferenceCatalogItemOrNull() },
+            preferenceTitles = root["preferenceTitles"].asStringMap(),
+        )
+        updated
+    }
+
+    suspend fun searchPreferenceCatalog(
+        service: BooruService,
+        query: String,
+    ): List<PreferenceCatalogItem> = withContext(Dispatchers.IO) {
+        val root = getJson(
+            "/preferences/catalog?serviceId=${service.id}&query=${java.net.URLEncoder.encode(query.trim(), "UTF-8")}",
+        )
+        return@withContext root["items"].jsonArrayOrEmpty().mapNotNull { it.asPreferenceCatalogItemOrNull() }
+    }
+
     suspend fun resolveQuery(
         service: BooruService,
         rawQuery: String,
@@ -335,6 +371,32 @@ class RuleServerStore {
                 model = ai?.get("model").asStringOrNull().orEmpty(),
             ),
         )
+    }
+
+    private fun JsonElement?.asContentPreferences(): ContentPreferences {
+        val root = this as? JsonObject ?: return ContentPreferences()
+        return ContentPreferences(
+            preferredTags = root["preferredTags"].jsonArrayOrEmpty().mapNotNull { it.asStringOrNull() }.distinct(),
+            blockedTags = root["blockedTags"].jsonArrayOrEmpty().mapNotNull { it.asStringOrNull() }.distinct(),
+        )
+    }
+
+    private fun JsonElement?.asPreferenceCatalogItemOrNull(): PreferenceCatalogItem? {
+        val root = this as? JsonObject ?: return null
+        val tag = root["tag"].asStringOrNull().orEmpty()
+        if (tag.isBlank()) return null
+        return PreferenceCatalogItem(
+            tag = tag,
+            titleRu = root["titleRu"].asStringOrNull().orEmpty().ifBlank { tag },
+            postCount = (root["postCount"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0,
+        )
+    }
+
+    private fun JsonElement?.asStringMap(): Map<String, String> {
+        val root = this as? JsonObject ?: return emptyMap()
+        return root.mapNotNull { (key, value) ->
+            value.asStringOrNull()?.let { key to it }
+        }.toMap()
     }
 
     private fun JsonElement?.asSavedSearchOrNull(): SavedSearchEntity? {

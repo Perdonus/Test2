@@ -7,6 +7,7 @@ import com.perdonus.r34viewer.data.remote.NetworkClientFactory
 import com.perdonus.r34viewer.data.remote.RuleServerStore
 import com.perdonus.r34viewer.data.repository.FavoritesRepository
 import com.perdonus.r34viewer.data.repository.PostsRepository
+import com.perdonus.r34viewer.data.repository.PreferencesRepository
 import com.perdonus.r34viewer.data.repository.SavedSearchRepository
 import com.perdonus.r34viewer.data.settings.SettingsRepository
 import com.perdonus.r34viewer.data.settings.SettingsRepositoryImpl
@@ -24,4 +25,5 @@ class AppContainer(application: Application) {
     val postsRepository = PostsRepository(apiSource)
     val favoritesRepository = FavoritesRepository(ruleServerStore)
     val savedSearchRepository = SavedSearchRepository(ruleServerStore)
+    val preferencesRepository = PreferencesRepository(ruleServerStore)
 }

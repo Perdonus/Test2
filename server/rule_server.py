@@ -59,11 +59,18 @@ def default_api_config() -> dict:
         },
     }
 
+
+DEFAULT_PREFERENCES = {
+    "preferredTags": [],
+    "blockedTags": [],
+}
+
 DEFAULT_STATE = {
     "favorites": [],
     "savedSearches": [],
     "proxy": DEFAULT_PROXY,
     "apiConfig": default_api_config(),
+    "preferences": DEFAULT_PREFERENCES,
     "nextSavedSearchId": 1,
 }
 
@@ -82,6 +89,33 @@ JSON_HEADERS = {
 }
 HTTP_TIMEOUT = 35
 USER_AGENT = "R34RuleServer/1.0"
+KONACHAN_BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/123.0.0.0 Safari/537.36"
+)
+DEFAULT_PREFERENCE_CATALOG = [
+    {"tag": "dickgirl", "titleRu": "Девочка с хуем"},
+    {"tag": "futanari", "titleRu": "Футанари"},
+    {"tag": "anal", "titleRu": "Анальный секс"},
+    {"tag": "oral", "titleRu": "Оральный секс"},
+    {"tag": "paizuri", "titleRu": "Сиськотряс / паизури"},
+    {"tag": "blowjob", "titleRu": "Минет"},
+    {"tag": "cum", "titleRu": "Сперма"},
+    {"tag": "cum_on_face", "titleRu": "Сперма на лице"},
+    {"tag": "cum_in_mouth", "titleRu": "Сперма во рту"},
+    {"tag": "masturbation", "titleRu": "Мастурбация"},
+    {"tag": "milf", "titleRu": "Зрелая женщина"},
+    {"tag": "monster_girl", "titleRu": "Девушка-монстр"},
+    {"tag": "tentacles", "titleRu": "Тентакли"},
+    {"tag": "pregnant", "titleRu": "Беременность"},
+    {"tag": "rape", "titleRu": "Изнасилование"},
+    {"tag": "bondage", "titleRu": "Бондаж"},
+    {"tag": "yaoi", "titleRu": "Яой"},
+    {"tag": "yuri", "titleRu": "Юри"},
+    {"tag": "nude", "titleRu": "Нагота"},
+    {"tag": "sex", "titleRu": "Секс"},
+]
 
 
 def now_ms() -> int:
@@ -96,6 +130,7 @@ def ensure_data_root() -> None:
             "savedSearches": [normalize_saved_search(item) for item in DEFAULT_STATE.get("savedSearches") or []],
             "proxy": normalize_proxy(DEFAULT_STATE.get("proxy") or {}),
             "apiConfig": normalize_api_config(DEFAULT_STATE.get("apiConfig") or {}),
+            "preferences": normalize_preferences(DEFAULT_STATE.get("preferences") or {}),
             "nextSavedSearchId": int(DEFAULT_STATE.get("nextSavedSearchId") or 1),
         }
         STATE_FILE.write_text(json.dumps(serializable, ensure_ascii=False, indent=2), "utf-8")
@@ -112,6 +147,7 @@ def load_state() -> dict:
     state["savedSearches"] = [normalize_saved_search(item) for item in state.get("savedSearches") or []]
     state["proxy"] = normalize_proxy(state.get("proxy") or {})
     state["apiConfig"] = normalize_api_config(state.get("apiConfig") or {})
+    state["preferences"] = normalize_preferences(state.get("preferences") or {})
     state["nextSavedSearchId"] = max(
         int(state.get("nextSavedSearchId") or 1),
         max((int(item.get("id") or 0) for item in state["savedSearches"]), default=0) + 1,
@@ -126,6 +162,7 @@ def save_state(state: dict) -> None:
         "savedSearches": [normalize_saved_search(item) for item in state.get("savedSearches") or []],
         "proxy": normalize_proxy(state.get("proxy") or {}),
         "apiConfig": normalize_api_config(state.get("apiConfig") or {}),
+        "preferences": normalize_preferences(state.get("preferences") or {}),
         "nextSavedSearchId": int(state.get("nextSavedSearchId") or 1),
     }
     temp_path = STATE_FILE.with_suffix(".tmp")
@@ -230,6 +267,34 @@ def normalize_api_config(raw: dict) -> dict:
     }
 
 
+def normalize_preferences(raw: dict) -> dict:
+    preferred = [normalize_candidate_tag(item) for item in raw.get("preferredTags") or []]
+    preferred = [item for item in preferred if item]
+    blocked = [normalize_candidate_tag(item) for item in raw.get("blockedTags") or []]
+    blocked = [item for item in blocked if item]
+    blocked = dedupe_preserve(blocked)
+    preferred = [item for item in preferred if item not in blocked]
+    return {
+        "preferredTags": dedupe_preserve(preferred),
+        "blockedTags": blocked,
+    }
+
+
+def preference_title_ru(tag: str) -> str:
+    normalized = normalize_candidate_tag(tag)
+    manual = next((item["titleRu"] for item in DEFAULT_PREFERENCE_CATALOG if item["tag"] == normalized), None)
+    if manual:
+        return manual
+    return normalized.replace("_", " ").strip().capitalize()
+
+
+def preference_titles_map(tags: list[str]) -> dict:
+    return {
+        tag: preference_title_ru(tag)
+        for tag in dedupe_preserve([normalize_candidate_tag(item) for item in tags if normalize_candidate_tag(item)])
+    }
+
+
 def public_state(state: dict) -> dict:
     favorites = sorted(state.get("favorites") or [], key=lambda item: int(item.get("savedAt") or 0), reverse=True)
     saved_searches = sorted(
@@ -237,12 +302,17 @@ def public_state(state: dict) -> dict:
         key=lambda item: int(item.get("createdAt") or 0),
         reverse=True,
     )
+    preferences = normalize_preferences(state.get("preferences") or {})
+    all_preference_tags = preferences.get("preferredTags", []) + preferences.get("blockedTags", [])
     return {
         "favorites": favorites,
         "favoriteIds": [item["serviceScopedId"] for item in favorites],
         "savedSearches": saved_searches,
         "proxy": normalize_proxy(state.get("proxy") or {}),
         "apiConfig": normalize_api_config(state.get("apiConfig") or {}),
+        "preferences": preferences,
+        "preferenceCatalog": default_preference_catalog(),
+        "preferenceTitles": preference_titles_map(all_preference_tags),
     }
 
 def read_url(
@@ -261,7 +331,9 @@ def read_url(
     )
     opener = urllib.request.build_opener()
     if not use_proxy:
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        # ProxyHandler(None) disables environment proxies without breaking
+        # TLS handshakes on providers like Konachan.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler(None))
     with opener.open(request, timeout=timeout) as response:
         return response.read()
 
@@ -295,7 +367,7 @@ def query_rule34_tags(term: str, api_config: dict) -> list[dict]:
     params_data["user_id"] = user_id
     params_data["api_key"] = api_key
     params = urllib.parse.urlencode(params_data)
-    root = ET.fromstring(read_url(f"https://api.rule34.xxx/index.php?{params}").decode("utf-8"))
+    root = ET.fromstring(read_url(f"https://api.rule34.xxx/index.php?{params}", use_proxy=False).decode("utf-8"))
     result = []
     for item in root.findall("tag"):
         result.append(
@@ -317,7 +389,7 @@ def query_xbooru_tags(term: str) -> list[dict]:
             "name_pattern": f"%{term}%",
         },
     )
-    root = ET.fromstring(read_url(f"https://xbooru.com/index.php?{params}").decode("utf-8"))
+    root = ET.fromstring(read_url(f"https://xbooru.com/index.php?{params}", use_proxy=False).decode("utf-8"))
     result = []
     for item in root.findall("tag"):
         result.append(
@@ -338,7 +410,14 @@ def query_konachan_tags(term: str, api_config: dict) -> list[dict]:
     if str(konachan_config.get("apiKey") or "").strip():
         params["api_key"] = str(konachan_config["apiKey"]).strip()
     url = f"https://konachan.com/tag.json?{urllib.parse.urlencode(params)}"
-    data = read_json_url(url)
+    data = read_json_url(
+        url,
+        headers={
+            "User-Agent": KONACHAN_BROWSER_USER_AGENT,
+            "Accept": "application/json",
+        },
+        use_proxy=False,
+    )
     return [
         {
             "name": str(item.get("name") or "").strip(),
@@ -366,11 +445,44 @@ def fetch_service_tags(service_id: str, term: str, api_config: dict) -> list[dic
         else:
             result = query_xbooru_tags(normalized_term)
     except Exception:
-        result = []
+        return []
 
     with TAG_CACHE_LOCK:
         TAG_CACHE[cache_key] = result
     return result
+
+
+def default_preference_catalog() -> list[dict]:
+    return [
+        {
+            "tag": item["tag"],
+            "titleRu": item["titleRu"],
+            "postCount": 0,
+        }
+        for item in DEFAULT_PREFERENCE_CATALOG
+    ]
+
+
+def search_preference_catalog(service_id: str, raw_query: str, api_config: dict) -> list[dict]:
+    query = str(raw_query or "").strip()
+    if not query:
+        return default_preference_catalog()
+
+    items = []
+    seen = set()
+    for item in fetch_service_tags(service_id, query, api_config):
+        tag = normalize_candidate_tag(item.get("name", ""))
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        items.append(
+            {
+                "tag": tag,
+                "titleRu": preference_title_ru(tag),
+                "postCount": int(item.get("count") or 0),
+            },
+        )
+    return items[:30]
 
 
 def looks_like_tag_query(raw_query: str) -> bool:
@@ -668,6 +780,39 @@ class RuleHandler(BaseHTTPRequestHandler):
             self.send_json(200, {"apiConfig": normalize_api_config(state.get("apiConfig") or {})})
             return
 
+        if path == "/api/preferences":
+            with STATE_LOCK:
+                state = load_state()
+            preferences = normalize_preferences(state.get("preferences") or {})
+            tags = preferences.get("preferredTags", []) + preferences.get("blockedTags", [])
+            self.send_json(
+                200,
+                {
+                    "preferences": preferences,
+                    "preferenceTitles": preference_titles_map(tags),
+                    "preferenceCatalog": default_preference_catalog(),
+                },
+            )
+            return
+
+        if path == "/api/preferences/catalog":
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            service_id = normalize_service_id((query.get("serviceId") or ["rule34"])[0])
+            term = (query.get("query") or [""])[0]
+            with STATE_LOCK:
+                state = load_state()
+            self.send_json(
+                200,
+                {
+                    "items": search_preference_catalog(
+                        service_id,
+                        term,
+                        normalize_api_config(state.get("apiConfig") or {}),
+                    ),
+                },
+            )
+            return
+
         self.send_json(404, {"error": "Not found"})
 
     def do_POST(self):
@@ -772,6 +917,26 @@ class RuleHandler(BaseHTTPRequestHandler):
                 with RESOLVE_CACHE_LOCK:
                     RESOLVE_CACHE.clear()
                 self.send_json(200, {"apiConfig": api_config})
+                return
+
+            if path == "/api/preferences":
+                preferences = normalize_preferences(body)
+                conflicts = set(preferences["preferredTags"]) & set(preferences["blockedTags"])
+                if conflicts:
+                    raise ValueError("Один и тот же тег нельзя одновременно любить и скрывать.")
+                with STATE_LOCK:
+                    state = load_state()
+                    state["preferences"] = preferences
+                    save_state(state)
+                tags = preferences.get("preferredTags", []) + preferences.get("blockedTags", [])
+                self.send_json(
+                    200,
+                    {
+                        "preferences": preferences,
+                        "preferenceTitles": preference_titles_map(tags),
+                        "preferenceCatalog": default_preference_catalog(),
+                    },
+                )
                 return
 
             if path == "/api/resolve-query":
