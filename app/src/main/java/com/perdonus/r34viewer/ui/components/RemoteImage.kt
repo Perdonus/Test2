@@ -61,7 +61,9 @@ private suspend fun fetchBitmap(url: String, okHttpClient: OkHttpClient): Bitmap
 
     okHttpClient.newCall(request).execute().use { response ->
         if (!response.isSuccessful) return@withContext null
-        val bitmap = response.body?.byteStream()?.use(BitmapFactory::decodeStream) ?: return@withContext null
+        val bitmap = response.body?.byteStream()?.use { inputStream ->
+            BitmapFactory.decodeStream(inputStream)
+        } ?: return@withContext null
         BitmapMemoryCache.put(url, bitmap)
         return@withContext bitmap
     }

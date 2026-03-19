@@ -97,15 +97,26 @@ jobs:
             echo "::error::Gradle failed before XML test reports were generated. See artifact r34-native-test-diagnostics."
           fi
 
-      - name: Fail workflow on unit test errors
-        if: steps.unit-tests.outcome == 'failure'
-        run: exit 1
-
       - name: Assemble debug APK
+        id: assemble-debug
+        if: always()
         run: ./gradlew assembleDebug
 
       - name: Upload debug APK
+        if: always() && steps.assemble-debug.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: r34-native-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Fail workflow on build errors
+        if: always()
+        run: |
+          if [ "${{ steps.unit-tests.outcome }}" = "failure" ]; then
+            echo "::error::Unit tests failed. See r34-native-test-diagnostics."
+            exit 1
+          fi
+          if [ "${{ steps.assemble-debug.outcome }}" = "failure" ]; then
+            echo "::error::assembleDebug failed."
+            exit 1
+          fi
