@@ -41,9 +41,11 @@ import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.ui.components.RemoteImage
 import okhttp3.OkHttpClient
 
-@OptIn(ExperimentalMaterial3Api::class)
-@OptIn(ExperimentalLayoutApi::class)
-@OptIn(UnstableApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalLayoutApi::class,
+    UnstableApi::class,
+)
 @Composable
 fun PostDetailScreen(
     post: Rule34Post?,
