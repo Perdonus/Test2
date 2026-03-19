@@ -38,8 +38,8 @@ fun RemoteImage(
 ) {
     val state by produceState<ImageLoadState>(
         initialValue = BitmapMemoryCache.get(url)?.let(ImageLoadState::Success) ?: ImageLoadState.Loading,
-        url,
-        okHttpClient,
+        key1 = url,
+        key2 = okHttpClient,
     ) {
         if (value is ImageLoadState.Success) return@produceState
         value = fetchBitmap(url, okHttpClient)
