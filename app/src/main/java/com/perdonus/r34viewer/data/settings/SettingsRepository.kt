@@ -1,19 +1,20 @@
 package com.perdonus.r34viewer.data.settings
 
 import android.content.Context
-import com.perdonus.r34viewer.data.model.BooruService
-import com.perdonus.r34viewer.data.remote.RuleServerStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.perdonus.r34viewer.data.model.BooruService
+import com.perdonus.r34viewer.data.remote.RuleServerStore
+import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import java.io.IOException
 
 interface SettingsRepository {
     val settings: Flow<AppSettings>
@@ -22,7 +23,10 @@ interface SettingsRepository {
 
     suspend fun updateSelectedService(service: BooruService)
 
-    suspend fun updateProxy(proxyConfig: ProxyConfig)
+    suspend fun updateServerSettings(
+        proxyConfig: ProxyConfig,
+        serviceApiConfig: ServiceApiConfig,
+    )
 }
 
 private val Context.dataStore by preferencesDataStore(name = "r34_settings")
@@ -47,8 +51,9 @@ class SettingsRepositoryImpl(
             selectedService = local.selectedService,
             hideAiContent = local.hideAiContent,
             proxyConfig = remote.proxyConfig,
+            serviceApiConfig = remote.serviceApiConfig,
         )
-    }
+    }.distinctUntilChanged()
 
     override suspend fun updateSelectedService(service: BooruService) {
         context.dataStore.edit { preferences ->
@@ -62,8 +67,14 @@ class SettingsRepositoryImpl(
         }
     }
 
-    override suspend fun updateProxy(proxyConfig: ProxyConfig) {
-        ruleServerStore.updateProxy(proxyConfig)
+    override suspend fun updateServerSettings(
+        proxyConfig: ProxyConfig,
+        serviceApiConfig: ServiceApiConfig,
+    ) {
+        ruleServerStore.updateServerSettings(
+            proxyConfig = proxyConfig,
+            serviceApiConfig = serviceApiConfig,
+        )
     }
 
     private fun toLocalSettings(preferences: Preferences): LocalSettings {

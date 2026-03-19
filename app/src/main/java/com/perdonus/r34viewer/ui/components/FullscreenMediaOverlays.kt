@@ -132,7 +132,7 @@ fun ZoomableImageOverlay(
                 okHttpClient = okHttpClient,
                 contentDescription = contentDescription,
                 contentScale = ContentScale.Fit,
-                maxDecodeDimensionPx = 2200,
+                maxDecodeDimensionPx = 1600,
             )
         }
     }

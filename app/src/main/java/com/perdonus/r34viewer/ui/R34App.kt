@@ -1,5 +1,7 @@
 package com.perdonus.r34viewer.ui
 
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -8,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,6 +57,9 @@ fun R34App() {
     val settingsForm by settingsViewModel.state.collectAsStateWithLifecycle()
 
     val pagingItems = searchViewModel.pagingData.collectAsLazyPagingItems()
+    val searchGridState = rememberSaveable(saver = LazyGridState.Saver) {
+        LazyGridState()
+    }
 
     val okHttpClient = remember(settings.proxyConfig.signature()) {
         application.container.networkClientFactory.create(settings)
@@ -64,6 +70,7 @@ fun R34App() {
     val showBottomBar = currentRoute != AppDestination.Details.route
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar {
@@ -97,6 +104,7 @@ fun R34App() {
                     query = query,
                     hasSubmittedSearch = hasSubmittedSearch,
                     pagingItems = pagingItems,
+                    gridState = searchGridState,
                     favoriteIds = favoriteIds,
                     settings = settings,
                     feedbackMessage = feedbackMessage,
@@ -153,12 +161,23 @@ fun R34App() {
             composable(AppDestination.Settings.route) {
                 SettingsScreen(
                     state = settingsForm,
+                    onRule34UserIdChanged = settingsViewModel::updateRule34UserId,
+                    onRule34ApiKeyChanged = settingsViewModel::updateRule34ApiKey,
+                    onKonachanApiKeyChanged = settingsViewModel::updateKonachanApiKey,
+                    onKonachanUsernameChanged = settingsViewModel::updateKonachanUsername,
+                    onKonachanPasswordChanged = settingsViewModel::updateKonachanPassword,
+                    onKonachanEmailChanged = settingsViewModel::updateKonachanEmail,
+                    onAiBaseUrlChanged = settingsViewModel::updateAiBaseUrl,
+                    onAiApiKeyChanged = settingsViewModel::updateAiApiKey,
+                    onAiModelChanged = settingsViewModel::updateAiModel,
                     onProxyEnabledChanged = settingsViewModel::updateProxyEnabled,
                     onProxyTypeChanged = settingsViewModel::updateProxyType,
                     onProxyHostChanged = settingsViewModel::updateProxyHost,
                     onProxyPortChanged = settingsViewModel::updateProxyPort,
                     onProxyUsernameChanged = settingsViewModel::updateProxyUsername,
                     onProxyPasswordChanged = settingsViewModel::updateProxyPassword,
+                    onRefreshCacheStats = settingsViewModel::refreshCacheStats,
+                    onClearImageCache = settingsViewModel::clearImageCache,
                     onSave = settingsViewModel::save,
                 )
             }

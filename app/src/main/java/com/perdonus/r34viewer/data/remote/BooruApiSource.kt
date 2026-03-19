@@ -7,6 +7,7 @@ import com.perdonus.r34viewer.data.model.PostMediaType
 import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.data.model.SearchQueryBuilder
 import com.perdonus.r34viewer.data.settings.AppSettings
+import com.perdonus.r34viewer.data.settings.ServiceApiConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -37,9 +38,10 @@ class BooruApiSource(
     ): List<Rule34Post> = withContext(Dispatchers.IO) {
         val service = settings.selectedService
         val query = SearchQueryBuilder.build(rawQuery, settings.hideAiContent)
+        validateServiceApiConfig(service, settings.serviceApiConfig)
         val client = networkClientFactory.create(settings)
         val request = Request.Builder()
-            .url(buildUrl(service, query, page, limit))
+            .url(buildUrl(service, query, page, limit, settings.serviceApiConfig))
             .get()
             .build()
 
@@ -66,29 +68,47 @@ class BooruApiSource(
         }
     }
 
+    private fun validateServiceApiConfig(
+        service: BooruService,
+        serviceApiConfig: ServiceApiConfig,
+    ) {
+        if (
+            service == BooruService.RULE34 &&
+            (serviceApiConfig.rule34.userId.isBlank() || serviceApiConfig.rule34.apiKey.isBlank())
+        ) {
+            throw BooruApiException("Rule34 API на сервере ещё не настроен.")
+        }
+    }
+
     private fun buildUrl(
         service: BooruService,
         query: String,
         page: Int,
         limit: Int,
+        serviceApiConfig: ServiceApiConfig,
     ) = when (service) {
-        BooruService.RULE34 -> "https://api.rule34.xxx/index.php".toHttpUrl().newBuilder()
-            .addQueryParameter("page", "dapi")
-            .addQueryParameter("s", "post")
-            .addQueryParameter("q", "index")
-            .addQueryParameter("json", "1")
-            .addQueryParameter("user_id", ServiceSecrets.RULE34_USER_ID)
-            .addQueryParameter("api_key", ServiceSecrets.RULE34_API_KEY)
-            .addQueryParameter("limit", limit.toString())
-            .addQueryParameter("pid", page.toString())
-            .addQueryParameter("tags", query)
-            .build()
+        BooruService.RULE34 -> {
+            if (serviceApiConfig.rule34.userId.isBlank() || serviceApiConfig.rule34.apiKey.isBlank()) {
+                throw BooruApiException("Rule34 API не настроен на сервере.")
+            }
+            "https://api.rule34.xxx/index.php".toHttpUrl().newBuilder()
+                .addQueryParameter("page", "dapi")
+                .addQueryParameter("s", "post")
+                .addQueryParameter("q", "index")
+                .addQueryParameter("json", "1")
+                .addQueryParameter("user_id", serviceApiConfig.rule34.userId)
+                .addQueryParameter("api_key", serviceApiConfig.rule34.apiKey)
+                .addQueryParameter("limit", limit.toString())
+                .addQueryParameter("pid", page.toString())
+                .addOptionalTags(query)
+                .build()
+        }
 
         BooruService.KONACHAN -> "https://konachan.com/post.json".toHttpUrl().newBuilder()
             .addQueryParameter("limit", limit.toString())
             .addQueryParameter("page", (page + 1).toString())
-            .addQueryParameter("api_key", ServiceSecrets.KONACHAN_API_KEY)
-            .addQueryParameter("tags", query)
+            .addOptionalQueryParameter("api_key", serviceApiConfig.konachan.apiKey)
+            .addOptionalTags(query)
             .build()
 
         BooruService.XBOORU -> "https://xbooru.com/index.php".toHttpUrl().newBuilder()
@@ -98,8 +118,19 @@ class BooruApiSource(
             .addQueryParameter("json", "1")
             .addQueryParameter("limit", limit.toString())
             .addQueryParameter("pid", page.toString())
-            .addQueryParameter("tags", query)
+            .addOptionalTags(query)
             .build()
+    }
+
+    private fun okhttp3.HttpUrl.Builder.addOptionalTags(query: String): okhttp3.HttpUrl.Builder {
+        return if (query.isBlank()) this else addQueryParameter("tags", query)
+    }
+
+    private fun okhttp3.HttpUrl.Builder.addOptionalQueryParameter(
+        name: String,
+        value: String,
+    ): okhttp3.HttpUrl.Builder {
+        return if (value.isBlank()) this else addQueryParameter(name, value)
     }
 
     private fun JsonElement.asPostOrNull(

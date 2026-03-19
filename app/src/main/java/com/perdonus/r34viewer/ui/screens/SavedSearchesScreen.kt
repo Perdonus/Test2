@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -14,8 +15,6 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,8 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.perdonus.r34viewer.data.local.SavedSearchEntity
+import com.perdonus.r34viewer.ui.components.ScreenHeader
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedSearchesScreen(
     savedSearches: List<SavedSearchEntity>,
@@ -43,59 +42,59 @@ fun SavedSearchesScreen(
     var renamingSearch by remember { mutableStateOf<SavedSearchEntity?>(null) }
     var renameValue by remember { mutableStateOf("") }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            CenterAlignedTopAppBar(title = { Text("Закладки") })
-        }
+    Column(modifier = Modifier.fillMaxSize()) {
+        ScreenHeader(title = "Закладки")
 
-        if (savedSearches.isEmpty()) {
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    EmptyState(
-                        title = "Закладок пока нет",
-                        subtitle = "Сохраните любой поисковый запрос из экрана поиска.",
-                    )
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (savedSearches.isEmpty()) {
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        EmptyState(
+                            title = "Закладок пока нет",
+                            subtitle = "Сохраните любой поисковый запрос из экрана поиска.",
+                        )
+                    }
                 }
-            }
-        } else {
-            items(savedSearches, key = { it.id }) { search ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                ) {
-                    Row(
+            } else {
+                items(savedSearches, key = { it.id }) { search ->
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                            .padding(horizontal = 16.dp),
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(search.label, style = MaterialTheme.typography.titleMedium)
-                            Text(search.service.displayName, style = MaterialTheme.typography.labelMedium)
-                            Text(search.query, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Row {
-                            IconButton(onClick = { onRunSearch(search) }) {
-                                Icon(Icons.Outlined.PlayArrow, contentDescription = "Запустить поиск")
-                            }
-                            IconButton(
-                                onClick = {
-                                    renamingSearch = search
-                                    renameValue = search.label
-                                },
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                Icon(Icons.Outlined.Edit, contentDescription = "Переименовать")
+                                Text(search.label, style = MaterialTheme.typography.titleMedium)
+                                Text(search.service.displayName, style = MaterialTheme.typography.labelMedium)
+                                Text(search.query, style = MaterialTheme.typography.bodyMedium)
                             }
-                            IconButton(onClick = { onDelete(search.id) }) {
-                                Icon(Icons.Outlined.Delete, contentDescription = "Удалить")
+                            Row {
+                                IconButton(onClick = { onRunSearch(search) }) {
+                                    Icon(Icons.Outlined.PlayArrow, contentDescription = "Запустить поиск")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        renamingSearch = search
+                                        renameValue = search.label
+                                    },
+                                ) {
+                                    Icon(Icons.Outlined.Edit, contentDescription = "Переименовать")
+                                }
+                                IconButton(onClick = { onDelete(search.id) }) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = "Удалить")
+                                }
                             }
                         }
                     }

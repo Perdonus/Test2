@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.perdonus.r34viewer.R34Application
+import com.perdonus.r34viewer.data.cache.ImageMemoryCache
 import com.perdonus.r34viewer.data.local.SavedSearchEntity
 import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.Rule34Post
@@ -19,8 +20,12 @@ import com.perdonus.r34viewer.data.repository.FavoritesRepository
 import com.perdonus.r34viewer.data.repository.PostsRepository
 import com.perdonus.r34viewer.data.repository.SavedSearchRepository
 import com.perdonus.r34viewer.data.settings.AppSettings
+import com.perdonus.r34viewer.data.settings.AiApiConfig
+import com.perdonus.r34viewer.data.settings.KonachanApiConfig
 import com.perdonus.r34viewer.data.settings.ProxyConfig
 import com.perdonus.r34viewer.data.settings.ProxyType
+import com.perdonus.r34viewer.data.settings.Rule34ApiConfig
+import com.perdonus.r34viewer.data.settings.ServiceApiConfig
 import com.perdonus.r34viewer.data.settings.SettingsRepository
 import com.perdonus.r34viewer.data.settings.SettingsValidator
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,7 +72,7 @@ class SearchViewModel(
     private val _searchRequest = MutableStateFlow(SearchRequest())
 
     val hasSubmittedSearch = _searchRequest
-        .map { it.query.isNotBlank() }
+        .map { it.nonce > 0L }
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
@@ -89,7 +94,7 @@ class SearchViewModel(
     val pagingData = combine(_searchRequest, settings) { request, appSettings ->
         request to appSettings
     }.flatMapLatest { (request, appSettings) ->
-        if (request.query.isBlank()) {
+        if (request.nonce == 0L) {
             flowOf(PagingData.empty<Rule34Post>())
         } else {
             postsRepository.search(request.query, appSettings)
@@ -102,7 +107,18 @@ class SearchViewModel(
 
     fun submitSearch() {
         val rawQuery = _queryText.value.trim()
-        if (rawQuery.isBlank() || _isResolvingQuery.value) return
+        if (_isResolvingQuery.value) return
+
+        if (rawQuery.isBlank()) {
+            _queryText.value = ""
+            _feedbackMessage.value = null
+            _searchRequest.value = SearchRequest(
+                query = "",
+                originQuery = "",
+                nonce = _searchRequest.value.nonce + 1,
+            )
+            return
+        }
 
         viewModelScope.launch {
             executeResolvedSearch(
@@ -179,9 +195,10 @@ class SearchViewModel(
             settingsRepository.updateSelectedService(service)
             val currentRequest = _searchRequest.value
             val activeQuery = currentRequest.originQuery.ifBlank { currentRequest.query }.trim()
-            if (activeQuery.isNotBlank()) {
+            if (currentRequest.nonce > 0L) {
                 val requiresServiceResolution =
-                    currentRequest.originQuery.isNotBlank() &&
+                    activeQuery.isNotBlank() &&
+                        currentRequest.originQuery.isNotBlank() &&
                         currentRequest.originQuery.trim() != currentRequest.query.trim()
 
                 if (!requiresServiceResolution) {
@@ -314,12 +331,23 @@ class SavedSearchesViewModel(
 
 data class SettingsFormState(
     val isLoaded: Boolean = false,
+    val rule34UserId: String = "",
+    val rule34ApiKey: String = "",
+    val konachanApiKey: String = "",
+    val konachanUsername: String = "",
+    val konachanPassword: String = "",
+    val konachanEmail: String = "",
+    val aiBaseUrl: String = "",
+    val aiApiKey: String = "",
+    val aiModel: String = "",
     val proxyEnabled: Boolean = false,
     val proxyType: ProxyType = ProxyType.HTTP,
     val proxyHost: String = "",
     val proxyPort: String = "",
     val proxyUsername: String = "",
     val proxyPassword: String = "",
+    val cacheSizeBytes: Long = 0L,
+    val cacheLimitBytes: Long = 0L,
     val errorMessage: String? = null,
     val successMessage: String? = null,
 )
@@ -337,23 +365,50 @@ class SettingsViewModel(
                 if (_state.value.isLoaded && hasPendingChanges) return@collect
                 _state.value = SettingsFormState(
                     isLoaded = true,
+                    rule34UserId = settings.serviceApiConfig.rule34.userId,
+                    rule34ApiKey = settings.serviceApiConfig.rule34.apiKey,
+                    konachanApiKey = settings.serviceApiConfig.konachan.apiKey,
+                    konachanUsername = settings.serviceApiConfig.konachan.username,
+                    konachanPassword = settings.serviceApiConfig.konachan.password,
+                    konachanEmail = settings.serviceApiConfig.konachan.email,
+                    aiBaseUrl = settings.serviceApiConfig.ai.baseUrl,
+                    aiApiKey = settings.serviceApiConfig.ai.apiKey,
+                    aiModel = settings.serviceApiConfig.ai.model,
                     proxyEnabled = settings.proxyConfig.enabled,
                     proxyType = settings.proxyConfig.type,
                     proxyHost = settings.proxyConfig.host,
                     proxyPort = settings.proxyConfig.port?.toString().orEmpty(),
                     proxyUsername = settings.proxyConfig.username,
                     proxyPassword = settings.proxyConfig.password,
+                    cacheSizeBytes = ImageMemoryCache.sizeBytes(),
+                    cacheLimitBytes = ImageMemoryCache.maxSizeBytes(),
                 )
             }
         }
     }
 
+    fun updateRule34UserId(value: String) = mutate { copy(rule34UserId = value, errorMessage = null, successMessage = null) }
+    fun updateRule34ApiKey(value: String) = mutate { copy(rule34ApiKey = value, errorMessage = null, successMessage = null) }
+    fun updateKonachanApiKey(value: String) = mutate { copy(konachanApiKey = value, errorMessage = null, successMessage = null) }
+    fun updateKonachanUsername(value: String) = mutate { copy(konachanUsername = value, errorMessage = null, successMessage = null) }
+    fun updateKonachanPassword(value: String) = mutate { copy(konachanPassword = value, errorMessage = null, successMessage = null) }
+    fun updateKonachanEmail(value: String) = mutate { copy(konachanEmail = value, errorMessage = null, successMessage = null) }
+    fun updateAiBaseUrl(value: String) = mutate { copy(aiBaseUrl = value, errorMessage = null, successMessage = null) }
+    fun updateAiApiKey(value: String) = mutate { copy(aiApiKey = value, errorMessage = null, successMessage = null) }
+    fun updateAiModel(value: String) = mutate { copy(aiModel = value, errorMessage = null, successMessage = null) }
     fun updateProxyEnabled(value: Boolean) = mutate { copy(proxyEnabled = value, errorMessage = null, successMessage = null) }
     fun updateProxyType(value: ProxyType) = mutate { copy(proxyType = value, errorMessage = null, successMessage = null) }
     fun updateProxyHost(value: String) = mutate { copy(proxyHost = value, errorMessage = null, successMessage = null) }
     fun updateProxyPort(value: String) = mutate { copy(proxyPort = value, errorMessage = null, successMessage = null) }
     fun updateProxyUsername(value: String) = mutate { copy(proxyUsername = value, errorMessage = null, successMessage = null) }
     fun updateProxyPassword(value: String) = mutate { copy(proxyPassword = value, errorMessage = null, successMessage = null) }
+
+    fun refreshCacheStats() {
+        _state.value = _state.value.copy(
+            cacheSizeBytes = ImageMemoryCache.sizeBytes(),
+            cacheLimitBytes = ImageMemoryCache.maxSizeBytes(),
+        )
+    }
 
     fun save() {
         val current = _state.value
@@ -369,7 +424,7 @@ class SettingsViewModel(
 
         viewModelScope.launch {
             runCatching {
-                settingsRepository.updateProxy(
+                settingsRepository.updateServerSettings(
                     ProxyConfig(
                         enabled = current.proxyEnabled,
                         type = current.proxyType,
@@ -378,20 +433,47 @@ class SettingsViewModel(
                         username = current.proxyUsername.trim(),
                         password = current.proxyPassword,
                     ),
+                    ServiceApiConfig(
+                        rule34 = Rule34ApiConfig(
+                            userId = current.rule34UserId.trim(),
+                            apiKey = current.rule34ApiKey.trim(),
+                        ),
+                        konachan = KonachanApiConfig(
+                            apiKey = current.konachanApiKey.trim(),
+                            username = current.konachanUsername.trim(),
+                            password = current.konachanPassword,
+                            email = current.konachanEmail.trim(),
+                        ),
+                        ai = AiApiConfig(
+                            baseUrl = current.aiBaseUrl.trim().removeSuffix("/"),
+                            apiKey = current.aiApiKey.trim(),
+                            model = current.aiModel.trim(),
+                        ),
+                    ),
                 )
             }.onSuccess {
                 hasPendingChanges = false
                 _state.value = current.copy(
-                    successMessage = "Серверный прокси сохранён.",
+                    successMessage = "Серверные настройки сохранены.",
                     errorMessage = null,
                 )
             }.onFailure { error ->
                 _state.value = current.copy(
-                    errorMessage = error.message ?: "Не удалось сохранить прокси на сервере.",
+                    errorMessage = error.message ?: "Не удалось сохранить настройки на сервере.",
                     successMessage = null,
                 )
             }
         }
+    }
+
+    fun clearImageCache() {
+        ImageMemoryCache.clear()
+        _state.value = _state.value.copy(
+            cacheSizeBytes = 0L,
+            cacheLimitBytes = ImageMemoryCache.maxSizeBytes(),
+            errorMessage = null,
+            successMessage = "Кеш изображений очищен.",
+        )
     }
 
     private inline fun mutate(transform: SettingsFormState.() -> SettingsFormState) {

@@ -4,8 +4,13 @@ import com.perdonus.r34viewer.data.local.SavedSearchEntity
 import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.PostMediaType
 import com.perdonus.r34viewer.data.model.Rule34Post
+import com.perdonus.r34viewer.data.settings.AiApiConfig
+import com.perdonus.r34viewer.data.settings.KonachanApiConfig
 import com.perdonus.r34viewer.data.settings.ProxyConfig
 import com.perdonus.r34viewer.data.settings.ProxyType
+import com.perdonus.r34viewer.data.settings.Rule34ApiConfig
+import com.perdonus.r34viewer.data.settings.ServiceApiConfig
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,11 +29,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
+import java.net.Proxy
 
 private const val RULE_SERVER_BASE_URL = "https://sosiskibot.ru/rule/api"
 
@@ -45,6 +51,7 @@ data class RuleServerSnapshot(
     val favoriteIds: Set<String> = emptySet(),
     val savedSearches: List<SavedSearchEntity> = emptyList(),
     val proxyConfig: ProxyConfig = ProxyConfig(),
+    val serviceApiConfig: ServiceApiConfig = ServiceApiConfig(),
 )
 
 class RuleServerException(message: String) : Exception(message)
@@ -56,6 +63,7 @@ class RuleServerStore {
     }
 
     private val client = OkHttpClient.Builder()
+        .proxy(Proxy.NO_PROXY)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
@@ -83,6 +91,7 @@ class RuleServerStore {
             favoriteIds = root["favoriteIds"].jsonArrayOrEmpty().mapNotNull { it.asStringOrNull() }.toSet(),
             savedSearches = root["savedSearches"].jsonArrayOrEmpty().mapNotNull { it.asSavedSearchOrNull() },
             proxyConfig = root["proxy"].asProxyConfig(),
+            serviceApiConfig = root["apiConfig"].asServiceApiConfig(),
         )
     }
 
@@ -184,6 +193,43 @@ class RuleServerStore {
         proxy
     }
 
+    suspend fun updateServerSettings(
+        proxyConfig: ProxyConfig,
+        serviceApiConfig: ServiceApiConfig,
+    ) = withContext(Dispatchers.IO) {
+        updateProxy(proxyConfig)
+        updateServiceApiConfig(serviceApiConfig)
+    }
+
+    suspend fun updateServiceApiConfig(serviceApiConfig: ServiceApiConfig): ServiceApiConfig = withContext(Dispatchers.IO) {
+        val root = postJson(
+            path = "/api-config",
+            body = buildJsonObject {
+                putJsonObject("rule34") {
+                    put("userId", JsonPrimitive(serviceApiConfig.rule34.userId))
+                    put("apiKey", JsonPrimitive(serviceApiConfig.rule34.apiKey))
+                }
+                putJsonObject("konachan") {
+                    put("apiKey", JsonPrimitive(serviceApiConfig.konachan.apiKey))
+                    put("username", JsonPrimitive(serviceApiConfig.konachan.username))
+                    put("password", JsonPrimitive(serviceApiConfig.konachan.password))
+                    put("email", JsonPrimitive(serviceApiConfig.konachan.email))
+                }
+                putJsonObject("ai") {
+                    put("baseUrl", JsonPrimitive(serviceApiConfig.ai.baseUrl))
+                    put("apiKey", JsonPrimitive(serviceApiConfig.ai.apiKey))
+                    put("model", JsonPrimitive(serviceApiConfig.ai.model))
+                }
+            },
+        )
+        val serviceConfig = root["apiConfig"].asServiceApiConfig()
+        _state.value = _state.value.copy(
+            isLoaded = true,
+            serviceApiConfig = serviceConfig,
+        )
+        serviceConfig
+    }
+
     suspend fun resolveQuery(
         service: BooruService,
         rawQuery: String,
@@ -264,6 +310,30 @@ class RuleServerStore {
             port = (root["port"] as? JsonPrimitive)?.content?.toIntOrNull(),
             username = root["username"].asStringOrNull().orEmpty(),
             password = root["password"].asStringOrNull().orEmpty(),
+        )
+    }
+
+    private fun JsonElement?.asServiceApiConfig(): ServiceApiConfig {
+        val root = this as? JsonObject ?: return ServiceApiConfig()
+        val rule34 = root["rule34"] as? JsonObject
+        val konachan = root["konachan"] as? JsonObject
+        val ai = root["ai"] as? JsonObject
+        return ServiceApiConfig(
+            rule34 = Rule34ApiConfig(
+                userId = rule34?.get("userId").asStringOrNull().orEmpty(),
+                apiKey = rule34?.get("apiKey").asStringOrNull().orEmpty(),
+            ),
+            konachan = KonachanApiConfig(
+                apiKey = konachan?.get("apiKey").asStringOrNull().orEmpty(),
+                username = konachan?.get("username").asStringOrNull().orEmpty(),
+                password = konachan?.get("password").asStringOrNull().orEmpty(),
+                email = konachan?.get("email").asStringOrNull().orEmpty(),
+            ),
+            ai = AiApiConfig(
+                baseUrl = ai?.get("baseUrl").asStringOrNull().orEmpty(),
+                apiKey = ai?.get("apiKey").asStringOrNull().orEmpty(),
+                model = ai?.get("model").asStringOrNull().orEmpty(),
+            ),
         )
     }
 

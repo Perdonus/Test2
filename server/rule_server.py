@@ -18,18 +18,17 @@ PUBLIC_BASE_URL = os.environ.get("RULE_PUBLIC_BASE_URL", "https://sosiskibot.ru/
 DATA_ROOT = Path(os.environ.get("RULE_SERVER_DATA_ROOT", "/var/lib/r34-rule")).resolve()
 STATE_FILE = DATA_ROOT / "state.json"
 
-AI_BASE_URL = os.environ.get("RULE_AI_BASE_URL", "https://sosiskibot.ru/api/v1/chat/completions")
-AI_API_KEY = os.environ.get(
-    "RULE_AI_API_KEY",
-    "aih_AetEJDHIS6qAb99E5alIC9dMEiYtkF4muZEdQTv_5TYgUsMG",
-).strip()
-AI_MODEL = os.environ.get("RULE_AI_MODEL", "sonar-pro").strip() or "sonar-pro"
+AI_BASE_URL_DEFAULT = os.environ.get("RULE_AI_BASE_URL", "https://sosiskibot.ru/api/v1/chat/completions").strip()
+AI_API_KEY_DEFAULT = os.environ.get("RULE_AI_API_KEY", "").strip()
+AI_MODEL_DEFAULT = os.environ.get("RULE_AI_MODEL", "sonar-pro").strip() or "sonar-pro"
 
-RULE34_USER_ID = os.environ.get("RULE34_USER_ID", "5767830").strip()
-RULE34_API_KEY = os.environ.get(
-    "RULE34_API_KEY",
-    "729d4de536fb1918c70726998e0595c84ff771776aa071a822721c472bc57bb7016e49a714b4b434712b0b5b123509d6e8cf371ff2ac99c8a50b958cff6e21d6",
-).strip()
+RULE34_USER_ID_DEFAULT = os.environ.get("RULE34_USER_ID", "").strip()
+RULE34_API_KEY_DEFAULT = os.environ.get("RULE34_API_KEY", "").strip()
+
+KONACHAN_API_KEY_DEFAULT = os.environ.get("KONACHAN_API_KEY", "").strip()
+KONACHAN_USERNAME_DEFAULT = os.environ.get("KONACHAN_USERNAME", "").strip()
+KONACHAN_PASSWORD_DEFAULT = os.environ.get("KONACHAN_PASSWORD", "").strip()
+KONACHAN_EMAIL_DEFAULT = os.environ.get("KONACHAN_EMAIL", "").strip()
 
 DEFAULT_PROXY = {
     "enabled": False,
@@ -40,10 +39,31 @@ DEFAULT_PROXY = {
     "password": "",
 }
 
+
+def default_api_config() -> dict:
+    return {
+        "rule34": {
+            "userId": RULE34_USER_ID_DEFAULT,
+            "apiKey": RULE34_API_KEY_DEFAULT,
+        },
+        "konachan": {
+            "apiKey": KONACHAN_API_KEY_DEFAULT,
+            "username": KONACHAN_USERNAME_DEFAULT,
+            "password": KONACHAN_PASSWORD_DEFAULT,
+            "email": KONACHAN_EMAIL_DEFAULT,
+        },
+        "ai": {
+            "baseUrl": AI_BASE_URL_DEFAULT,
+            "apiKey": AI_API_KEY_DEFAULT,
+            "model": AI_MODEL_DEFAULT,
+        },
+    }
+
 DEFAULT_STATE = {
     "favorites": [],
     "savedSearches": [],
     "proxy": DEFAULT_PROXY,
+    "apiConfig": default_api_config(),
     "nextSavedSearchId": 1,
 }
 
@@ -75,6 +95,7 @@ def ensure_data_root() -> None:
             "favorites": [normalize_post(item) for item in DEFAULT_STATE.get("favorites") or []],
             "savedSearches": [normalize_saved_search(item) for item in DEFAULT_STATE.get("savedSearches") or []],
             "proxy": normalize_proxy(DEFAULT_STATE.get("proxy") or {}),
+            "apiConfig": normalize_api_config(DEFAULT_STATE.get("apiConfig") or {}),
             "nextSavedSearchId": int(DEFAULT_STATE.get("nextSavedSearchId") or 1),
         }
         STATE_FILE.write_text(json.dumps(serializable, ensure_ascii=False, indent=2), "utf-8")
@@ -90,6 +111,7 @@ def load_state() -> dict:
     state["favorites"] = [normalize_post(item) for item in state.get("favorites") or []]
     state["savedSearches"] = [normalize_saved_search(item) for item in state.get("savedSearches") or []]
     state["proxy"] = normalize_proxy(state.get("proxy") or {})
+    state["apiConfig"] = normalize_api_config(state.get("apiConfig") or {})
     state["nextSavedSearchId"] = max(
         int(state.get("nextSavedSearchId") or 1),
         max((int(item.get("id") or 0) for item in state["savedSearches"]), default=0) + 1,
@@ -103,6 +125,7 @@ def save_state(state: dict) -> None:
         "favorites": [normalize_post(item) for item in state.get("favorites") or []],
         "savedSearches": [normalize_saved_search(item) for item in state.get("savedSearches") or []],
         "proxy": normalize_proxy(state.get("proxy") or {}),
+        "apiConfig": normalize_api_config(state.get("apiConfig") or {}),
         "nextSavedSearchId": int(state.get("nextSavedSearchId") or 1),
     }
     temp_path = STATE_FILE.with_suffix(".tmp")
@@ -183,6 +206,30 @@ def normalize_proxy(raw: dict) -> dict:
     }
 
 
+def normalize_api_config(raw: dict) -> dict:
+    defaults = default_api_config()
+    rule34 = raw.get("rule34") or {}
+    konachan = raw.get("konachan") or {}
+    ai = raw.get("ai") or {}
+    return {
+        "rule34": {
+            "userId": str(rule34.get("userId") or defaults["rule34"]["userId"]).strip(),
+            "apiKey": str(rule34.get("apiKey") or defaults["rule34"]["apiKey"]).strip(),
+        },
+        "konachan": {
+            "apiKey": str(konachan.get("apiKey") or defaults["konachan"]["apiKey"]).strip(),
+            "username": str(konachan.get("username") or defaults["konachan"]["username"]).strip(),
+            "password": str(konachan.get("password") or defaults["konachan"]["password"]),
+            "email": str(konachan.get("email") or defaults["konachan"]["email"]).strip(),
+        },
+        "ai": {
+            "baseUrl": str(ai.get("baseUrl") or defaults["ai"]["baseUrl"]).strip().rstrip("/"),
+            "apiKey": str(ai.get("apiKey") or defaults["ai"]["apiKey"]).strip(),
+            "model": str(ai.get("model") or defaults["ai"]["model"]).strip() or defaults["ai"]["model"],
+        },
+    }
+
+
 def public_state(state: dict) -> dict:
     favorites = sorted(state.get("favorites") or [], key=lambda item: int(item.get("savedAt") or 0), reverse=True)
     saved_searches = sorted(
@@ -195,34 +242,59 @@ def public_state(state: dict) -> dict:
         "favoriteIds": [item["serviceScopedId"] for item in favorites],
         "savedSearches": saved_searches,
         "proxy": normalize_proxy(state.get("proxy") or {}),
+        "apiConfig": normalize_api_config(state.get("apiConfig") or {}),
     }
 
-
-def read_url(url: str, headers: dict | None = None) -> bytes:
+def read_url(
+    url: str,
+    headers: dict | None = None,
+    use_proxy: bool = True,
+    data: bytes | None = None,
+    method: str | None = None,
+    timeout: int = HTTP_TIMEOUT,
+) -> bytes:
     request = urllib.request.Request(
         url,
+        data=data,
+        method=method,
         headers={"User-Agent": USER_AGENT, **(headers or {})},
     )
-    with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
+    opener = urllib.request.build_opener()
+    if not use_proxy:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=timeout) as response:
         return response.read()
 
 
-def read_json_url(url: str, headers: dict | None = None):
-    return json.loads(read_url(url, headers=headers).decode("utf-8"))
-
-
-def query_rule34_tags(term: str) -> list[dict]:
-    params = urllib.parse.urlencode(
-        {
-            "page": "dapi",
-            "s": "tag",
-            "q": "index",
-            "limit": "100",
-            "name_pattern": f"%{term}%",
-            "user_id": RULE34_USER_ID,
-            "api_key": RULE34_API_KEY,
-        },
+def read_json_url(
+    url: str,
+    headers: dict | None = None,
+    use_proxy: bool = True,
+    data: bytes | None = None,
+    method: str | None = None,
+    timeout: int = HTTP_TIMEOUT,
+):
+    return json.loads(
+        read_url(url, headers=headers, use_proxy=use_proxy, data=data, method=method, timeout=timeout).decode("utf-8"),
     )
+
+
+def query_rule34_tags(term: str, api_config: dict) -> list[dict]:
+    params_data = {
+        "page": "dapi",
+        "s": "tag",
+        "q": "index",
+        "limit": "100",
+        "name_pattern": f"%{term}%",
+    }
+    rule34_config = normalize_api_config(api_config).get("rule34") or {}
+    user_id = str(rule34_config.get("userId") or "").strip()
+    api_key = str(rule34_config.get("apiKey") or "").strip()
+    if not user_id or not api_key:
+        return []
+    params_data["user_id"] = user_id
+    params_data["api_key"] = api_key
+    params = urllib.parse.urlencode(params_data)
     root = ET.fromstring(read_url(f"https://api.rule34.xxx/index.php?{params}").decode("utf-8"))
     result = []
     for item in root.findall("tag"):
@@ -257,8 +329,15 @@ def query_xbooru_tags(term: str) -> list[dict]:
     return result
 
 
-def query_konachan_tags(term: str) -> list[dict]:
-    url = f"https://konachan.com/tag.json?{urllib.parse.urlencode({'name': f'*{term}*', 'limit': 100})}"
+def query_konachan_tags(term: str, api_config: dict) -> list[dict]:
+    params = {
+        "name": f"*{term}*",
+        "limit": 100,
+    }
+    konachan_config = normalize_api_config(api_config).get("konachan") or {}
+    if str(konachan_config.get("apiKey") or "").strip():
+        params["api_key"] = str(konachan_config["apiKey"]).strip()
+    url = f"https://konachan.com/tag.json?{urllib.parse.urlencode(params)}"
     data = read_json_url(url)
     return [
         {
@@ -269,7 +348,7 @@ def query_konachan_tags(term: str) -> list[dict]:
     ]
 
 
-def fetch_service_tags(service_id: str, term: str) -> list[dict]:
+def fetch_service_tags(service_id: str, term: str, api_config: dict) -> list[dict]:
     normalized_term = str(term or "").strip().lower()
     if not normalized_term:
         return []
@@ -281,9 +360,9 @@ def fetch_service_tags(service_id: str, term: str) -> list[dict]:
 
     try:
         if service_id == "rule34":
-            result = query_rule34_tags(normalized_term)
+            result = query_rule34_tags(normalized_term, api_config)
         elif service_id == "konachan":
-            result = query_konachan_tags(normalized_term)
+            result = query_konachan_tags(normalized_term, api_config)
         else:
             result = query_xbooru_tags(normalized_term)
     except Exception:
@@ -348,18 +427,18 @@ def preferred_fallback_candidates(service_id: str, canonical_name: str) -> list[
     return [first_last, last_first]
 
 
-def resolve_exact_tag_count(service_id: str, candidate: str) -> int:
+def resolve_exact_tag_count(service_id: str, candidate: str, api_config: dict) -> int:
     normalized_candidate = normalize_candidate_tag(candidate)
     if not normalized_candidate:
         return 0
     search_term = normalized_candidate.split("_")[0]
-    for item in fetch_service_tags(service_id, search_term):
+    for item in fetch_service_tags(service_id, search_term, api_config):
         if normalize_candidate_tag(item.get("name", "")) == normalized_candidate:
             return int(item.get("count") or 0)
     return 0
 
 
-def ask_ai(service_id: str, raw_query: str) -> dict:
+def ask_ai(service_id: str, raw_query: str, api_config: dict) -> dict:
     prompt = (
         "You recover the intended canonical Latin name of a fictional character, franchise, or booru-friendly concept from a noisy user query. "
         "The query may be misspelled, partially transliterated from Russian, or phonetically distorted. "
@@ -376,7 +455,7 @@ def ask_ai(service_id: str, raw_query: str) -> dict:
     )
     payload = json.dumps(
         {
-            "model": AI_MODEL,
+            "model": normalize_api_config(api_config).get("ai", {}).get("model") or AI_MODEL_DEFAULT,
             "temperature": 0.1,
             "messages": [
                 {
@@ -387,18 +466,22 @@ def ask_ai(service_id: str, raw_query: str) -> dict:
         },
         ensure_ascii=False,
     ).encode("utf-8")
-    request = urllib.request.Request(
-        AI_BASE_URL,
+    ai_config = normalize_api_config(api_config).get("ai") or {}
+    base_url = str(ai_config.get("baseUrl") or AI_BASE_URL_DEFAULT).strip().rstrip("/")
+    api_key = str(ai_config.get("apiKey") or "").strip()
+    if not base_url or not api_key:
+        raise ValueError("AI API на сервере не настроен.")
+    data = read_json_url(
+        base_url,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        use_proxy=False,
         data=payload,
         method="POST",
-        headers={
-            "Authorization": f"Bearer {AI_API_KEY}",
-            "Content-Type": "application/json",
-            "User-Agent": USER_AGENT,
-        },
+        timeout=120,
     )
-    with urllib.request.urlopen(request, timeout=120) as response:
-        data = json.loads(response.read().decode("utf-8"))
     content = data["choices"][0]["message"]["content"]
     cleaned = extract_json_object(str(content))
     return json.loads(cleaned)
@@ -425,7 +508,7 @@ def dedupe_preserve(items: list[str]) -> list[str]:
     return result
 
 
-def resolve_query(service_id: str, raw_query: str, mode: str) -> dict:
+def resolve_query(service_id: str, raw_query: str, mode: str, api_config: dict) -> dict:
     normalized_query = str(raw_query or "").strip()
     if not normalized_query:
         raise ValueError("Введите запрос.")
@@ -436,31 +519,21 @@ def resolve_query(service_id: str, raw_query: str, mode: str) -> dict:
     if cached is not None:
         return cached
 
-    if mode == "auto" and looks_like_tag_query(normalized_query):
-        resolved = {
-            "resolvedQuery": normalized_query,
-            "canonicalName": None,
-            "tags": normalize_tags(normalized_query.replace(" ", "_")),
-            "explanation": "Запрос уже выглядит как booru-теги, оставляю как есть.",
-            "source": "direct",
-        }
-        with RESOLVE_CACHE_LOCK:
-            RESOLVE_CACHE[cache_key] = resolved
-        return resolved
-
-    simple_candidate = normalize_candidate_tag(normalized_query)
+    simple_candidate = normalize_candidate_tag(normalized_query.replace(" ", "_"))
     if (
         mode == "auto"
         and simple_candidate
-        and " " not in normalized_query
-        and re.fullmatch(r"[A-Za-z0-9_()]+", normalized_query) is not None
-        and resolve_exact_tag_count(service_id, simple_candidate) > 0
+        and resolve_exact_tag_count(service_id, simple_candidate, api_config) > 0
     ):
         resolved = {
             "resolvedQuery": simple_candidate,
             "canonicalName": None,
             "tags": [simple_candidate],
-            "explanation": "Нашёл точный тег на выбранном сервисе.",
+            "explanation": (
+                "Запрос уже совпал с тегом выбранного сервиса."
+                if looks_like_tag_query(normalized_query)
+                else "Нашёл точный тег на выбранном сервисе."
+            ),
             "source": "direct-exact",
             "serviceId": service_id,
         }
@@ -468,7 +541,7 @@ def resolve_query(service_id: str, raw_query: str, mode: str) -> dict:
             RESOLVE_CACHE[cache_key] = resolved
         return resolved
 
-    ai_data = ask_ai(service_id, normalized_query)
+    ai_data = ask_ai(service_id, normalized_query, api_config)
     canonical_name = str(ai_data.get("canonical_name") or "").strip() or None
     ai_candidates = [
         normalize_candidate_tag(item)
@@ -486,7 +559,7 @@ def resolve_query(service_id: str, raw_query: str, mode: str) -> dict:
     best_tag = None
     best_count = -1
     for candidate in exact_candidates:
-        count = resolve_exact_tag_count(service_id, candidate)
+        count = resolve_exact_tag_count(service_id, candidate, api_config)
         if count > best_count:
             best_tag = candidate
             best_count = count
@@ -505,7 +578,7 @@ def resolve_query(service_id: str, raw_query: str, mode: str) -> dict:
         )
         ranked = {}
         for term in token_pool[:4]:
-            for item in fetch_service_tags(service_id, term):
+            for item in fetch_service_tags(service_id, term, api_config):
                 name = normalize_candidate_tag(item.get("name", ""))
                 count = int(item.get("count") or 0)
                 if not name:
@@ -571,7 +644,10 @@ class RuleHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/health":
-            self.send_json(200, {"ok": True, "time": int(time.time()), "model": AI_MODEL})
+            with STATE_LOCK:
+                state = load_state()
+            ai_model = normalize_api_config(state.get("apiConfig") or {}).get("ai", {}).get("model") or AI_MODEL_DEFAULT
+            self.send_json(200, {"ok": True, "time": int(time.time()), "model": ai_model})
             return
 
         if path == "/api/state":
@@ -584,6 +660,12 @@ class RuleHandler(BaseHTTPRequestHandler):
             with STATE_LOCK:
                 state = load_state()
             self.send_json(200, {"proxy": normalize_proxy(state.get("proxy") or {})})
+            return
+
+        if path == "/api/api-config":
+            with STATE_LOCK:
+                state = load_state()
+            self.send_json(200, {"apiConfig": normalize_api_config(state.get("apiConfig") or {})})
             return
 
         self.send_json(404, {"error": "Not found"})
@@ -679,12 +761,32 @@ class RuleHandler(BaseHTTPRequestHandler):
                 self.send_json(200, {"proxy": proxy})
                 return
 
+            if path == "/api/api-config":
+                api_config = normalize_api_config(body)
+                with STATE_LOCK:
+                    state = load_state()
+                    state["apiConfig"] = api_config
+                    save_state(state)
+                with TAG_CACHE_LOCK:
+                    TAG_CACHE.clear()
+                with RESOLVE_CACHE_LOCK:
+                    RESOLVE_CACHE.clear()
+                self.send_json(200, {"apiConfig": api_config})
+                return
+
             if path == "/api/resolve-query":
                 service_id = normalize_service_id(body.get("serviceId") or body.get("service"))
                 mode = str(body.get("mode") or "auto").strip().lower()
                 if mode not in {"auto", "ai"}:
                     mode = "auto"
-                result = resolve_query(service_id, str(body.get("query") or ""), mode)
+                with STATE_LOCK:
+                    state = load_state()
+                result = resolve_query(
+                    service_id,
+                    str(body.get("query") or ""),
+                    mode,
+                    normalize_api_config(state.get("apiConfig") or {}),
+                )
                 self.send_json(200, result)
                 return
         except ValueError as exc:

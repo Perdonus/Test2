@@ -28,8 +28,33 @@ data class ProxyConfig(
     ).joinToString("|")
 }
 
+data class Rule34ApiConfig(
+    val userId: String = "",
+    val apiKey: String = "",
+)
+
+data class KonachanApiConfig(
+    val apiKey: String = "",
+    val username: String = "",
+    val password: String = "",
+    val email: String = "",
+)
+
+data class AiApiConfig(
+    val baseUrl: String = "",
+    val apiKey: String = "",
+    val model: String = "",
+)
+
+data class ServiceApiConfig(
+    val rule34: Rule34ApiConfig = Rule34ApiConfig(),
+    val konachan: KonachanApiConfig = KonachanApiConfig(),
+    val ai: AiApiConfig = AiApiConfig(),
+)
+
 data class AppSettings(
     val selectedService: BooruService = BooruService.RULE34,
     val hideAiContent: Boolean = false,
     val proxyConfig: ProxyConfig = ProxyConfig(),
+    val serviceApiConfig: ServiceApiConfig = ServiceApiConfig(),
 )
