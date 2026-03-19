@@ -20,11 +20,12 @@ import com.perdonus.r34viewer.data.repository.FavoritesRepository
 import com.perdonus.r34viewer.data.repository.PostsRepository
 import com.perdonus.r34viewer.data.repository.PreferencesRepository
 import com.perdonus.r34viewer.data.repository.SavedSearchRepository
+import com.perdonus.r34viewer.data.settings.PreferenceCatalogItem
 import com.perdonus.r34viewer.data.settings.AppSettings
 import com.perdonus.r34viewer.data.settings.AiApiConfig
 import com.perdonus.r34viewer.data.settings.ContentPreferences
 import com.perdonus.r34viewer.data.settings.KonachanApiConfig
-import com.perdonus.r34viewer.data.settings.PreferenceCatalogItem
+import com.perdonus.r34viewer.data.cache.MediaDiskCache
 import com.perdonus.r34viewer.data.settings.ProxyConfig
 import com.perdonus.r34viewer.data.settings.ProxyType
 import com.perdonus.r34viewer.data.settings.Rule34ApiConfig
@@ -39,6 +40,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class AppViewModel : ViewModel() {
@@ -54,6 +57,7 @@ class SearchViewModel(
     private val postsRepository: PostsRepository,
     private val favoritesRepository: FavoritesRepository,
     private val savedSearchRepository: SavedSearchRepository,
+    private val preferencesRepository: PreferencesRepository,
     private val settingsRepository: SettingsRepository,
     private val aiTagResolver: AiTagResolver,
 ) : ViewModel() {
@@ -69,10 +73,14 @@ class SearchViewModel(
     private val _feedbackMessage = MutableStateFlow<String?>(null)
     val feedbackMessage = _feedbackMessage.asStateFlow()
 
+    private val _searchSuggestions = MutableStateFlow(emptyList<PreferenceCatalogItem>())
+    val searchSuggestions = _searchSuggestions.asStateFlow()
+
     private val _isResolvingQuery = MutableStateFlow(false)
     val isResolvingQuery = _isResolvingQuery.asStateFlow()
 
     private val _searchRequest = MutableStateFlow(SearchRequest())
+    private var suggestionJob: Job? = null
 
     val hasSubmittedSearch = _searchRequest
         .map { it.nonce > 0L }
@@ -106,11 +114,13 @@ class SearchViewModel(
 
     fun updateQuery(query: String) {
         _queryText.value = query
+        requestSuggestions(query)
     }
 
     fun submitSearch() {
         val rawQuery = _queryText.value.trim()
         if (_isResolvingQuery.value) return
+        clearSuggestions()
 
         if (rawQuery.isBlank()) {
             _queryText.value = ""
@@ -142,6 +152,7 @@ class SearchViewModel(
             val normalized = query.trim()
             _queryText.value = normalized
             _feedbackMessage.value = null
+            clearSuggestions()
             _searchRequest.value = SearchRequest(
                 query = normalized,
                 originQuery = normalized,
@@ -196,6 +207,7 @@ class SearchViewModel(
         viewModelScope.launch {
             if (settings.value.selectedService == service) return@launch
             settingsRepository.updateSelectedService(service)
+            requestSuggestions(_queryText.value, service)
             val currentRequest = _searchRequest.value
             val activeQuery = currentRequest.originQuery.ifBlank { currentRequest.query }.trim()
             if (currentRequest.nonce > 0L) {
@@ -255,16 +267,8 @@ class SearchViewModel(
             )
             val finalQuery = resolution.resolvedQuery.ifBlank { rawQuery }
             _queryText.value = finalQuery
-            _feedbackMessage.value = buildString {
-                when {
-                    mode == ResolveMode.AI -> append("ИИ-поиск: $finalQuery")
-                    finalQuery != rawQuery -> append("Подобран запрос для ${targetService.displayName}: $finalQuery")
-                }
-                resolution.explanation?.takeIf { it.isNotBlank() }?.let { explanation ->
-                    if (isNotEmpty()) append(". ")
-                    append(explanation)
-                }
-            }.ifBlank { null }
+            _feedbackMessage.value = null
+            clearSuggestions()
             _searchRequest.value = SearchRequest(
                 query = finalQuery,
                 originQuery = rawQuery,
@@ -285,6 +289,49 @@ class SearchViewModel(
         } finally {
             _isResolvingQuery.value = false
         }
+    }
+
+    fun useSuggestion(tag: String) {
+        runSearch(tag, settings.value.selectedService)
+    }
+
+    private fun requestSuggestions(
+        query: String,
+        serviceOverride: BooruService? = null,
+    ) {
+        val normalized = query.trim()
+        suggestionJob?.cancel()
+        if (normalized.isBlank()) {
+            clearSuggestions()
+            return
+        }
+
+        suggestionJob = viewModelScope.launch {
+            delay(180)
+            val service = serviceOverride ?: settings.value.selectedService
+            runCatching {
+                preferencesRepository.searchCatalog(
+                    service = service,
+                    query = normalized,
+                )
+            }.onSuccess { items ->
+                val serviceStillMatches = serviceOverride != null || settings.value.selectedService == service
+                if (_queryText.value.trim() == normalized && serviceStillMatches) {
+                    _searchSuggestions.value = items
+                        .filter { it.tag != normalized }
+                        .take(10)
+                }
+            }.onFailure {
+                if (_queryText.value.trim() == normalized) {
+                    _searchSuggestions.value = emptyList()
+                }
+            }
+        }
+    }
+
+    private fun clearSuggestions() {
+        suggestionJob?.cancel()
+        _searchSuggestions.value = emptyList()
     }
 }
 
@@ -501,7 +548,7 @@ data class SettingsFormState(
     val proxyUsername: String = "",
     val proxyPassword: String = "",
     val cacheSizeBytes: Long = 0L,
-    val cacheLimitBytes: Long = 0L,
+    val cacheLimitBytes: Long = -1L,
     val errorMessage: String? = null,
     val successMessage: String? = null,
 )
@@ -534,8 +581,8 @@ class SettingsViewModel(
                     proxyPort = settings.proxyConfig.port?.toString().orEmpty(),
                     proxyUsername = settings.proxyConfig.username,
                     proxyPassword = settings.proxyConfig.password,
-                    cacheSizeBytes = ImageMemoryCache.sizeBytes(),
-                    cacheLimitBytes = ImageMemoryCache.maxSizeBytes(),
+                    cacheSizeBytes = ImageMemoryCache.sizeBytes() + MediaDiskCache.sizeBytes(),
+                    cacheLimitBytes = -1L,
                 )
             }
         }
@@ -559,12 +606,12 @@ class SettingsViewModel(
 
     fun refreshCacheStats() {
         _state.value = _state.value.copy(
-            cacheSizeBytes = ImageMemoryCache.sizeBytes(),
-            cacheLimitBytes = ImageMemoryCache.maxSizeBytes(),
+            cacheSizeBytes = ImageMemoryCache.sizeBytes() + MediaDiskCache.sizeBytes(),
+            cacheLimitBytes = -1L,
         )
     }
 
-    fun save() {
+    fun saveProxySettings() {
         val current = _state.value
         val proxyError = SettingsValidator.validateProxy(
             enabled = current.proxyEnabled,
@@ -578,7 +625,7 @@ class SettingsViewModel(
 
         viewModelScope.launch {
             runCatching {
-                settingsRepository.updateServerSettings(
+                settingsRepository.updateProxyConfig(
                     ProxyConfig(
                         enabled = current.proxyEnabled,
                         type = current.proxyType,
@@ -587,6 +634,28 @@ class SettingsViewModel(
                         username = current.proxyUsername.trim(),
                         password = current.proxyPassword,
                     ),
+                )
+            }.onSuccess {
+                hasPendingChanges = false
+                _state.value = current.copy(
+                    successMessage = "Прокси сохранён.",
+                    errorMessage = null,
+                )
+            }.onFailure { error ->
+                _state.value = current.copy(
+                    errorMessage = error.message ?: "Не удалось сохранить прокси на сервере.",
+                    successMessage = null,
+                )
+            }
+        }
+    }
+
+    fun saveApiSettings() {
+        val current = _state.value
+
+        viewModelScope.launch {
+            runCatching {
+                settingsRepository.updateServiceApiConfig(
                     ServiceApiConfig(
                         rule34 = Rule34ApiConfig(
                             userId = current.rule34UserId.trim(),
@@ -608,25 +677,26 @@ class SettingsViewModel(
             }.onSuccess {
                 hasPendingChanges = false
                 _state.value = current.copy(
-                    successMessage = "Серверные настройки сохранены.",
+                    successMessage = "API-настройки сохранены.",
                     errorMessage = null,
                 )
             }.onFailure { error ->
                 _state.value = current.copy(
-                    errorMessage = error.message ?: "Не удалось сохранить настройки на сервере.",
+                    errorMessage = error.message ?: "Не удалось сохранить API-настройки на сервере.",
                     successMessage = null,
                 )
             }
         }
     }
 
-    fun clearImageCache() {
+    fun clearMediaCache() {
         ImageMemoryCache.clear()
+        MediaDiskCache.clear()
         _state.value = _state.value.copy(
             cacheSizeBytes = 0L,
-            cacheLimitBytes = ImageMemoryCache.maxSizeBytes(),
+            cacheLimitBytes = -1L,
             errorMessage = null,
-            successMessage = "Кеш изображений очищен.",
+            successMessage = "Кеш медиа очищен.",
         )
     }
 
@@ -644,6 +714,7 @@ object AppViewModelProvider {
                 postsRepository = r34Application().container.postsRepository,
                 favoritesRepository = r34Application().container.favoritesRepository,
                 savedSearchRepository = r34Application().container.savedSearchRepository,
+                preferencesRepository = r34Application().container.preferencesRepository,
                 settingsRepository = r34Application().container.settingsRepository,
                 aiTagResolver = r34Application().container.aiTagResolver,
             )

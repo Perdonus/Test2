@@ -34,19 +34,11 @@ fun SettingsScreen(
     onProxyPortChanged: (String) -> Unit,
     onProxyUsernameChanged: (String) -> Unit,
     onProxyPasswordChanged: (String) -> Unit,
-    onRule34UserIdChanged: (String) -> Unit,
-    onRule34ApiKeyChanged: (String) -> Unit,
-    onKonachanApiKeyChanged: (String) -> Unit,
-    onKonachanUsernameChanged: (String) -> Unit,
-    onKonachanPasswordChanged: (String) -> Unit,
-    onKonachanEmailChanged: (String) -> Unit,
-    onAiBaseUrlChanged: (String) -> Unit,
-    onAiApiKeyChanged: (String) -> Unit,
-    onAiModelChanged: (String) -> Unit,
     onRefreshCacheStats: () -> Unit,
-    onClearImageCache: () -> Unit,
+    onClearMediaCache: () -> Unit,
+    onOpenApiSettings: () -> Unit,
     onOpenPreferences: () -> Unit,
-    onSave: () -> Unit,
+    onSaveProxy: () -> Unit,
 ) {
     LaunchedEffect(Unit) {
         onRefreshCacheStats()
@@ -129,78 +121,17 @@ fun SettingsScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("Rule34 API", style = MaterialTheme.typography.titleMedium)
-                    SettingsTextField(
-                        value = state.rule34UserId,
-                        onValueChange = onRule34UserIdChanged,
-                        label = "User ID",
+                    Text("API", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Rule34, Konachan и ИИ-ключи вынесены в отдельное меню, чтобы основной экран настроек не был перегружен.",
+                        style = MaterialTheme.typography.bodyMedium,
                     )
-                    SettingsTextField(
-                        value = state.rule34ApiKey,
-                        onValueChange = onRule34ApiKeyChanged,
-                        label = "API key",
-                        secret = true,
-                    )
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("Konachan API", style = MaterialTheme.typography.titleMedium)
-                    SettingsTextField(
-                        value = state.konachanApiKey,
-                        onValueChange = onKonachanApiKeyChanged,
-                        label = "API key",
-                        secret = true,
-                    )
-                    SettingsTextField(
-                        value = state.konachanUsername,
-                        onValueChange = onKonachanUsernameChanged,
-                        label = "Логин",
-                    )
-                    SettingsTextField(
-                        value = state.konachanPassword,
-                        onValueChange = onKonachanPasswordChanged,
-                        label = "Пароль",
-                        secret = true,
-                    )
-                    SettingsTextField(
-                        value = state.konachanEmail,
-                        onValueChange = onKonachanEmailChanged,
-                        label = "E-mail",
-                    )
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("ИИ-сервис", style = MaterialTheme.typography.titleMedium)
-                    SettingsTextField(
-                        value = state.aiBaseUrl,
-                        onValueChange = onAiBaseUrlChanged,
-                        label = "Base URL",
-                    )
-                    SettingsTextField(
-                        value = state.aiApiKey,
-                        onValueChange = onAiApiKeyChanged,
-                        label = "API key",
-                        secret = true,
-                    )
-                    SettingsTextField(
-                        value = state.aiModel,
-                        onValueChange = onAiModelChanged,
-                        label = "Модель",
-                    )
+                    Button(
+                        onClick = onOpenApiSettings,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Открыть API")
+                    }
                 }
             }
 
@@ -252,13 +183,14 @@ fun SettingsScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("Кеш изображений", style = MaterialTheme.typography.titleMedium)
+                    Text("Кеш медиа", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = "Занято: ${formatBytes(state.cacheSizeBytes)} из ${formatBytes(state.cacheLimitBytes)}",
+                        text = "Занято: ${formatBytes(state.cacheSizeBytes)}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                    Text("Лимит: без ограничений", style = MaterialTheme.typography.bodySmall)
                     Button(
-                        onClick = onClearImageCache,
+                        onClick = onClearMediaCache,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Очистить кеш")
@@ -267,10 +199,10 @@ fun SettingsScreen(
             }
 
             Button(
-                onClick = onSave,
+                onClick = onSaveProxy,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Сохранить на сервер")
+                Text("Сохранить прокси")
             }
         }
     }

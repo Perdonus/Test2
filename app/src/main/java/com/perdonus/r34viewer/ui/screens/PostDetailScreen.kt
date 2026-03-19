@@ -1,5 +1,9 @@
 package com.perdonus.r34viewer.ui.screens
 
+import android.Manifest
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -25,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,12 +43,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import com.perdonus.r34viewer.data.cache.MediaDiskCache
+import com.perdonus.r34viewer.data.download.MediaDownloadManager
 import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.ui.components.FullscreenVideoOverlay
 import com.perdonus.r34viewer.ui.components.RemoteImage
@@ -89,6 +98,37 @@ fun PostDetailScreen(
     var playWhenReady by rememberSaveable(post.fileUrl) { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val startDownload = remember(post, context) {
+        {
+            val downloadId = MediaDownloadManager.enqueue(context, post)
+            Toast.makeText(
+                context,
+                if (downloadId != null) {
+                    "Скачивание началось: Downloads/rule"
+                } else {
+                    "Не удалось начать скачивание"
+                },
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    val downloadPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            startDownload()
+        } else {
+            Toast.makeText(
+                context,
+                "Для Downloads/rule на Android 9 нужен доступ к памяти.",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
+    val initialVideoUri = remember(post.fileUrl) {
+        MediaDiskCache.cachedFile(post.fileUrl)?.toUri()?.toString() ?: post.fileUrl
+    }
     val player = remember(post.fileUrl, okHttpClient) {
         if (!post.isVideo) return@remember null
         val mediaSourceFactory = DefaultMediaSourceFactory(
@@ -98,11 +138,17 @@ fun PostDetailScreen(
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
             .apply {
-                setMediaItem(MediaItem.fromUri(post.fileUrl))
+                setMediaItem(MediaItem.fromUri(initialVideoUri))
                 prepare()
                 seekTo(playbackPosition)
                 this.playWhenReady = playWhenReady
             }
+    }
+
+    LaunchedEffect(post.fileUrl, post.isVideo, okHttpClient) {
+        if (post.isVideo) {
+            MediaDiskCache.prefetch(post.fileUrl, okHttpClient)
+        }
     }
 
     DisposableEffect(player) {
@@ -123,6 +169,23 @@ fun PostDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = {
+                            if (
+                                MediaDownloadManager.requiresLegacyWritePermission() &&
+                                !MediaDownloadManager.hasLegacyWritePermission(context)
+                            ) {
+                                downloadPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            } else {
+                                startDownload()
+                            }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Download,
+                            contentDescription = "Скачать в Downloads/rule",
+                        )
+                    }
                     IconButton(onClick = { onToggleFavorite(post) }) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,

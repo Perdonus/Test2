@@ -23,6 +23,10 @@ interface SettingsRepository {
 
     suspend fun updateSelectedService(service: BooruService)
 
+    suspend fun updateProxyConfig(proxyConfig: ProxyConfig)
+
+    suspend fun updateServiceApiConfig(serviceApiConfig: ServiceApiConfig)
+
     suspend fun updateServerSettings(
         proxyConfig: ProxyConfig,
         serviceApiConfig: ServiceApiConfig,
@@ -68,6 +72,14 @@ class SettingsRepositoryImpl(
         context.dataStore.edit { preferences ->
             preferences[Keys.HideAiContent] = enabled
         }
+    }
+
+    override suspend fun updateProxyConfig(proxyConfig: ProxyConfig) {
+        ruleServerStore.updateProxy(proxyConfig)
+    }
+
+    override suspend fun updateServiceApiConfig(serviceApiConfig: ServiceApiConfig) {
+        ruleServerStore.updateServiceApiConfig(serviceApiConfig)
     }
 
     override suspend fun updateServerSettings(

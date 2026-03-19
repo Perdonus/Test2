@@ -18,6 +18,7 @@ sealed class AppDestination(
     data object SavedSearches : AppDestination("saved_searches", "Закладки", Icons.Outlined.BookmarkBorder)
     data object Settings : AppDestination("settings", "Настройки", Icons.Outlined.Settings)
     data object Preferences : AppDestination("preferences", "Предпочтения", Icons.Outlined.Tune)
+    data object ApiSettings : AppDestination("api_settings", "API", Icons.Outlined.Settings)
     data object Details : AppDestination("details", "Пост", Icons.Outlined.FavoriteBorder)
 }
 

@@ -17,10 +17,10 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.perdonus.r34viewer.data.cache.ImageMemoryCache
+import com.perdonus.r34viewer.data.cache.MediaDiskCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 
 private sealed interface ImageLoadState {
     data object Loading : ImageLoadState
@@ -90,28 +90,21 @@ private suspend fun fetchBitmap(
 ): Bitmap? = withContext(Dispatchers.IO) {
     ImageMemoryCache.get(url, maxDecodeDimensionPx)?.let { return@withContext it }
 
-    val request = Request.Builder()
-        .url(url)
-        .get()
-        .build()
-
-    okHttpClient.newCall(request).execute().use { response ->
-        if (!response.isSuccessful) return@withContext null
-        val bytes = response.body?.bytes() ?: return@withContext null
-        val bounds = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-        }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-
-        val options = BitmapFactory.Options().apply {
-            inPreferredConfig = Bitmap.Config.RGB_565
-            inDither = true
-            inSampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight, maxDecodeDimensionPx)
-        }
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@withContext null
-        ImageMemoryCache.put(url, maxDecodeDimensionPx, bitmap)
-        return@withContext bitmap
+    val cachedFile = MediaDiskCache.getOrFetch(url, okHttpClient) ?: return@withContext null
+    val bytes = cachedFile.readBytes()
+    val bounds = BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
     }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+
+    val options = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.RGB_565
+        inDither = true
+        inSampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight, maxDecodeDimensionPx)
+    }
+    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@withContext null
+    ImageMemoryCache.put(url, maxDecodeDimensionPx, bitmap)
+    return@withContext bitmap
 }
 
 private fun calculateSampleSize(

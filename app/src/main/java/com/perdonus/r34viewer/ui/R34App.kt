@@ -23,6 +23,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import com.perdonus.r34viewer.ui.navigation.AppDestination
 import com.perdonus.r34viewer.ui.navigation.topLevelDestinations
 import com.perdonus.r34viewer.ui.screens.FavoritesScreen
+import com.perdonus.r34viewer.ui.screens.ApiSettingsScreen
 import com.perdonus.r34viewer.ui.screens.PostDetailScreen
 import com.perdonus.r34viewer.ui.screens.PreferencesScreen
 import com.perdonus.r34viewer.ui.screens.SavedSearchesScreen
@@ -50,6 +51,7 @@ fun R34App() {
 
     val selectedPost by appViewModel.selectedPost.collectAsStateWithLifecycle()
     val query by searchViewModel.queryText.collectAsStateWithLifecycle()
+    val searchSuggestions by searchViewModel.searchSuggestions.collectAsStateWithLifecycle()
     val feedbackMessage by searchViewModel.feedbackMessage.collectAsStateWithLifecycle()
     val hasSubmittedSearch by searchViewModel.hasSubmittedSearch.collectAsStateWithLifecycle()
     val isResolvingQuery by searchViewModel.isResolvingQuery.collectAsStateWithLifecycle()
@@ -73,7 +75,8 @@ fun R34App() {
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar =
         currentRoute != AppDestination.Details.route &&
-            currentRoute != AppDestination.Preferences.route
+            currentRoute != AppDestination.Preferences.route &&
+            currentRoute != AppDestination.ApiSettings.route
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -113,6 +116,7 @@ fun R34App() {
                     gridState = searchGridState,
                     favoriteIds = favoriteIds,
                     settings = settings,
+                    searchSuggestions = searchSuggestions,
                     feedbackMessage = feedbackMessage,
                     isResolvingQuery = isResolvingQuery,
                     okHttpClient = okHttpClient,
@@ -130,6 +134,7 @@ fun R34App() {
                         navController.navigate(AppDestination.Details.route)
                     },
                     onToggleFavorite = searchViewModel::toggleFavorite,
+                    onUseSuggestion = searchViewModel::useSuggestion,
                     onDismissMessage = searchViewModel::clearMessage,
                 )
             }
@@ -167,6 +172,28 @@ fun R34App() {
             composable(AppDestination.Settings.route) {
                 SettingsScreen(
                     state = settingsForm,
+                    onProxyEnabledChanged = settingsViewModel::updateProxyEnabled,
+                    onProxyTypeChanged = settingsViewModel::updateProxyType,
+                    onProxyHostChanged = settingsViewModel::updateProxyHost,
+                    onProxyPortChanged = settingsViewModel::updateProxyPort,
+                    onProxyUsernameChanged = settingsViewModel::updateProxyUsername,
+                    onProxyPasswordChanged = settingsViewModel::updateProxyPassword,
+                    onRefreshCacheStats = settingsViewModel::refreshCacheStats,
+                    onClearMediaCache = settingsViewModel::clearMediaCache,
+                    onOpenApiSettings = {
+                        navController.navigate(AppDestination.ApiSettings.route)
+                    },
+                    onOpenPreferences = {
+                        navController.navigate(AppDestination.Preferences.route)
+                    },
+                    onSaveProxy = settingsViewModel::saveProxySettings,
+                )
+            }
+
+            composable(AppDestination.ApiSettings.route) {
+                ApiSettingsScreen(
+                    state = settingsForm,
+                    onBack = { navController.popBackStack() },
                     onRule34UserIdChanged = settingsViewModel::updateRule34UserId,
                     onRule34ApiKeyChanged = settingsViewModel::updateRule34ApiKey,
                     onKonachanApiKeyChanged = settingsViewModel::updateKonachanApiKey,
@@ -176,18 +203,7 @@ fun R34App() {
                     onAiBaseUrlChanged = settingsViewModel::updateAiBaseUrl,
                     onAiApiKeyChanged = settingsViewModel::updateAiApiKey,
                     onAiModelChanged = settingsViewModel::updateAiModel,
-                    onProxyEnabledChanged = settingsViewModel::updateProxyEnabled,
-                    onProxyTypeChanged = settingsViewModel::updateProxyType,
-                    onProxyHostChanged = settingsViewModel::updateProxyHost,
-                    onProxyPortChanged = settingsViewModel::updateProxyPort,
-                    onProxyUsernameChanged = settingsViewModel::updateProxyUsername,
-                    onProxyPasswordChanged = settingsViewModel::updateProxyPassword,
-                    onRefreshCacheStats = settingsViewModel::refreshCacheStats,
-                    onClearImageCache = settingsViewModel::clearImageCache,
-                    onOpenPreferences = {
-                        navController.navigate(AppDestination.Preferences.route)
-                    },
-                    onSave = settingsViewModel::save,
+                    onSaveApi = settingsViewModel::saveApiSettings,
                 )
             }
 

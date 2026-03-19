@@ -2,6 +2,7 @@ package com.perdonus.r34viewer.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,8 +14,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -48,6 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -59,6 +64,7 @@ import androidx.paging.compose.itemKey
 import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.data.settings.AppSettings
+import com.perdonus.r34viewer.data.settings.PreferenceCatalogItem
 import com.perdonus.r34viewer.ui.components.PostCard
 import com.perdonus.r34viewer.ui.components.ScreenHeader
 import okhttp3.OkHttpClient
@@ -72,6 +78,7 @@ fun SearchScreen(
     gridState: LazyGridState,
     favoriteIds: Set<String>,
     settings: AppSettings,
+    searchSuggestions: List<PreferenceCatalogItem>,
     feedbackMessage: String?,
     isResolvingQuery: Boolean,
     okHttpClient: OkHttpClient,
@@ -84,13 +91,15 @@ fun SearchScreen(
     onOpenSettings: () -> Unit,
     onOpenPost: (Rule34Post) -> Unit,
     onToggleFavorite: (Rule34Post) -> Unit,
+    onUseSuggestion: (String) -> Unit,
     onDismissMessage: () -> Unit,
 ) {
     var showAiDialog by rememberSaveable { mutableStateOf(false) }
+    var isSearchFieldFocused by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         ScreenHeader(
-            title = "Просмотрщик booru",
+            title = "rule34",
             actions = {
                 IconButton(onClick = onOpenSettings) {
                     Icon(Icons.Outlined.Settings, contentDescription = "Настройки")
@@ -109,7 +118,9 @@ fun SearchScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isSearchFieldFocused = it.isFocused },
                         value = query,
                         onValueChange = onQueryChanged,
                         singleLine = true,
@@ -130,6 +141,16 @@ fun SearchScreen(
                         text = "Оставьте поле пустым, чтобы открыть свежие посты выбранного сервиса.",
                         style = MaterialTheme.typography.bodySmall,
                     )
+
+                    if (isSearchFieldFocused && query.isNotBlank() && searchSuggestions.isNotEmpty()) {
+                        SearchSuggestionSheet(
+                            suggestions = searchSuggestions,
+                            onUseSuggestion = { suggestion ->
+                                isSearchFieldFocused = false
+                                onUseSuggestion(suggestion)
+                            },
+                        )
+                    }
 
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -172,30 +193,6 @@ fun SearchScreen(
                                 onClick = { onSelectService(service) },
                                 label = { Text(service.displayName) },
                             )
-                        }
-                    }
-
-                    if (hasSubmittedSearch) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                Text(
-                                    text = "Результаты: ${settings.selectedService.displayName}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                Text(
-                                    text = if (query.isBlank()) {
-                                        "Лента без тегов для ${settings.selectedService.displayName}"
-                                    } else {
-                                        "Текущий запрос: $query"
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                            }
                         }
                     }
 
@@ -328,6 +325,52 @@ fun SearchScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun SearchSuggestionSheet(
+    suggestions: List<PreferenceCatalogItem>,
+    onUseSuggestion: (String) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 280.dp),
+            contentPadding = PaddingValues(vertical = 4.dp),
+        ) {
+            items(suggestions, key = { it.tag }) { suggestion ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onUseSuggestion(suggestion.tag) },
+                    color = MaterialTheme.colorScheme.surface,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = suggestion.titleRu,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = suggestion.tag,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "Постов: ${suggestion.postCount}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
