@@ -9,7 +9,7 @@ class SettingsValidatorTest {
     @Test
     fun `requires proxy host when proxy enabled`() {
         assertEquals(
-            "Для proxy нужен host.",
+            "Для прокси нужен хост.",
             SettingsValidator.validateProxy(enabled = true, host = "", portText = "8080"),
         )
     }
@@ -17,7 +17,7 @@ class SettingsValidatorTest {
     @Test
     fun `validates proxy port`() {
         assertEquals(
-            "Укажите корректный proxy port.",
+            "Укажите корректный порт прокси.",
             SettingsValidator.validateProxy(enabled = true, host = "127.0.0.1", portText = "99999"),
         )
     }
