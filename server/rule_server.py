@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import subprocess
 import threading
 import time
 import urllib.error
@@ -172,6 +173,15 @@ def save_state(state: dict) -> None:
 
 def normalize_service_id(value: str | None) -> str:
     service_id = str(value or "").strip().lower()
+    service_id = service_id.split(".")[-1]
+    service_id = re.sub(r"[^a-z0-9_]+", "", service_id)
+    service_id = {
+        "rule": "rule34",
+        "r34": "rule34",
+        "rule34xxx": "rule34",
+        "konachancom": "konachan",
+        "xboorucom": "xbooru",
+    }.get(service_id, service_id)
     if service_id not in SERVICE_IDS:
         raise ValueError("Неизвестный сервис.")
     return service_id
@@ -351,6 +361,43 @@ def read_json_url(
     )
 
 
+def proxy_url_from_config(proxy_config: dict | None) -> str | None:
+    proxy = normalize_proxy(proxy_config or {})
+    if not proxy.get("enabled") or not proxy.get("host") or not proxy.get("port"):
+        return None
+    scheme = "socks5h" if proxy.get("type") == "SOCKS" else "http"
+    username = urllib.parse.quote(str(proxy.get("username") or ""), safe="")
+    password = urllib.parse.quote(str(proxy.get("password") or ""), safe="")
+    credentials = f"{username}:{password}@" if username or password else ""
+    return f"{scheme}://{credentials}{proxy['host']}:{proxy['port']}"
+
+
+def read_json_url_via_curl(
+    url: str,
+    headers: dict | None = None,
+    proxy_config: dict | None = None,
+    timeout: int = HTTP_TIMEOUT,
+):
+    command = [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--location",
+        "--max-time",
+        str(timeout),
+    ]
+    proxy_url = proxy_url_from_config(proxy_config)
+    if proxy_url:
+        command.extend(["--proxy", proxy_url])
+    else:
+        command.extend(["--noproxy", "*"])
+    for key, value in (headers or {}).items():
+        command.extend(["-H", f"{key}: {value}"])
+    command.append(url)
+    output = subprocess.check_output(command, text=True)
+    return json.loads(output)
+
+
 def query_rule34_tags(term: str, api_config: dict) -> list[dict]:
     params_data = {
         "page": "dapi",
@@ -401,7 +448,7 @@ def query_xbooru_tags(term: str) -> list[dict]:
     return result
 
 
-def query_konachan_tags(term: str, api_config: dict) -> list[dict]:
+def query_konachan_tags(term: str, api_config: dict, proxy_config: dict | None = None) -> list[dict]:
     params = {
         "name": f"*{term}*",
         "limit": 100,
@@ -410,14 +457,23 @@ def query_konachan_tags(term: str, api_config: dict) -> list[dict]:
     if str(konachan_config.get("apiKey") or "").strip():
         params["api_key"] = str(konachan_config["apiKey"]).strip()
     url = f"https://konachan.com/tag.json?{urllib.parse.urlencode(params)}"
-    data = read_json_url(
-        url,
-        headers={
-            "User-Agent": KONACHAN_BROWSER_USER_AGENT,
-            "Accept": "application/json",
-        },
-        use_proxy=False,
-    )
+    headers = {
+        "User-Agent": KONACHAN_BROWSER_USER_AGENT,
+        "Accept": "application/json",
+    }
+    try:
+        data = read_json_url(
+            url,
+            headers=headers,
+        )
+    except Exception:
+        if proxy_url_from_config(proxy_config) is None:
+            raise
+        data = read_json_url_via_curl(
+            url,
+            headers=headers,
+            proxy_config=proxy_config,
+        )
     return [
         {
             "name": str(item.get("name") or "").strip(),
@@ -427,7 +483,7 @@ def query_konachan_tags(term: str, api_config: dict) -> list[dict]:
     ]
 
 
-def fetch_service_tags(service_id: str, term: str, api_config: dict) -> list[dict]:
+def fetch_service_tags(service_id: str, term: str, api_config: dict, proxy_config: dict | None = None) -> list[dict]:
     normalized_term = str(term or "").strip().lower()
     if not normalized_term:
         return []
@@ -441,10 +497,14 @@ def fetch_service_tags(service_id: str, term: str, api_config: dict) -> list[dic
         if service_id == "rule34":
             result = query_rule34_tags(normalized_term, api_config)
         elif service_id == "konachan":
-            result = query_konachan_tags(normalized_term, api_config)
+            result = query_konachan_tags(normalized_term, api_config, proxy_config)
         else:
             result = query_xbooru_tags(normalized_term)
-    except Exception:
+    except Exception as exc:
+        print(
+            f"Tag fetch failed for service={service_id} term={normalized_term}: {exc}",
+            flush=True,
+        )
         return []
 
     with TAG_CACHE_LOCK:
@@ -463,14 +523,19 @@ def default_preference_catalog() -> list[dict]:
     ]
 
 
-def search_preference_catalog(service_id: str, raw_query: str, api_config: dict) -> list[dict]:
+def search_preference_catalog(
+    service_id: str,
+    raw_query: str,
+    api_config: dict,
+    proxy_config: dict | None = None,
+) -> list[dict]:
     query = str(raw_query or "").strip()
     if not query:
         return default_preference_catalog()
 
     items = []
     seen = set()
-    for item in fetch_service_tags(service_id, query, api_config):
+    for item in fetch_service_tags(service_id, query, api_config, proxy_config):
         tag = normalize_candidate_tag(item.get("name", ""))
         if not tag or tag in seen:
             continue
@@ -539,12 +604,17 @@ def preferred_fallback_candidates(service_id: str, canonical_name: str) -> list[
     return [first_last, last_first]
 
 
-def resolve_exact_tag_count(service_id: str, candidate: str, api_config: dict) -> int:
+def resolve_exact_tag_count(
+    service_id: str,
+    candidate: str,
+    api_config: dict,
+    proxy_config: dict | None = None,
+) -> int:
     normalized_candidate = normalize_candidate_tag(candidate)
     if not normalized_candidate:
         return 0
     search_term = normalized_candidate.split("_")[0]
-    for item in fetch_service_tags(service_id, search_term, api_config):
+    for item in fetch_service_tags(service_id, search_term, api_config, proxy_config):
         if normalize_candidate_tag(item.get("name", "")) == normalized_candidate:
             return int(item.get("count") or 0)
     return 0
@@ -620,7 +690,13 @@ def dedupe_preserve(items: list[str]) -> list[str]:
     return result
 
 
-def resolve_query(service_id: str, raw_query: str, mode: str, api_config: dict) -> dict:
+def resolve_query(
+    service_id: str,
+    raw_query: str,
+    mode: str,
+    api_config: dict,
+    proxy_config: dict | None = None,
+) -> dict:
     normalized_query = str(raw_query or "").strip()
     if not normalized_query:
         raise ValueError("Введите запрос.")
@@ -635,7 +711,7 @@ def resolve_query(service_id: str, raw_query: str, mode: str, api_config: dict) 
     if (
         mode == "auto"
         and simple_candidate
-        and resolve_exact_tag_count(service_id, simple_candidate, api_config) > 0
+        and resolve_exact_tag_count(service_id, simple_candidate, api_config, proxy_config) > 0
     ):
         resolved = {
             "resolvedQuery": simple_candidate,
@@ -671,7 +747,7 @@ def resolve_query(service_id: str, raw_query: str, mode: str, api_config: dict) 
     best_tag = None
     best_count = -1
     for candidate in exact_candidates:
-        count = resolve_exact_tag_count(service_id, candidate, api_config)
+        count = resolve_exact_tag_count(service_id, candidate, api_config, proxy_config)
         if count > best_count:
             best_tag = candidate
             best_count = count
@@ -690,7 +766,7 @@ def resolve_query(service_id: str, raw_query: str, mode: str, api_config: dict) 
         )
         ranked = {}
         for term in token_pool[:4]:
-            for item in fetch_service_tags(service_id, term, api_config):
+            for item in fetch_service_tags(service_id, term, api_config, proxy_config):
                 name = normalize_candidate_tag(item.get("name", ""))
                 count = int(item.get("count") or 0)
                 if not name:
@@ -797,19 +873,24 @@ class RuleHandler(BaseHTTPRequestHandler):
 
         if path == "/api/preferences/catalog":
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
-            service_id = normalize_service_id((query.get("serviceId") or ["rule34"])[0])
+            raw_service_id = (query.get("serviceId") or query.get("service") or ["rule34"])[0]
+            try:
+                service_id = normalize_service_id(raw_service_id)
+            except ValueError as exc:
+                self.send_json(400, {"error": str(exc)})
+                return
             term = (query.get("query") or [""])[0]
             with STATE_LOCK:
                 state = load_state()
+            items = search_preference_catalog(
+                service_id,
+                term,
+                normalize_api_config(state.get("apiConfig") or {}),
+                normalize_proxy(state.get("proxy") or {}),
+            )
             self.send_json(
                 200,
-                {
-                    "items": search_preference_catalog(
-                        service_id,
-                        term,
-                        normalize_api_config(state.get("apiConfig") or {}),
-                    ),
-                },
+                {"items": items},
             )
             return
 
@@ -951,6 +1032,7 @@ class RuleHandler(BaseHTTPRequestHandler):
                     str(body.get("query") or ""),
                     mode,
                     normalize_api_config(state.get("apiConfig") or {}),
+                    normalize_proxy(state.get("proxy") or {}),
                 )
                 self.send_json(200, result)
                 return
