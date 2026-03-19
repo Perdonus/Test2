@@ -6,8 +6,14 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.perdonus.r34viewer.R34Application
+import com.perdonus.r34viewer.data.local.SavedSearchEntity
+import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.Rule34Post
+import com.perdonus.r34viewer.data.remote.AiTagResolver
+import com.perdonus.r34viewer.data.remote.AiTagResolverException
 import com.perdonus.r34viewer.data.repository.FavoritesRepository
 import com.perdonus.r34viewer.data.repository.PostsRepository
 import com.perdonus.r34viewer.data.repository.SavedSearchRepository
@@ -15,8 +21,7 @@ import com.perdonus.r34viewer.data.settings.AppSettings
 import com.perdonus.r34viewer.data.settings.ProxyConfig
 import com.perdonus.r34viewer.data.settings.ProxyType
 import com.perdonus.r34viewer.data.settings.SettingsRepository
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
+import com.perdonus.r34viewer.data.settings.SettingsValidator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +29,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -41,6 +47,7 @@ class SearchViewModel(
     private val favoritesRepository: FavoritesRepository,
     private val savedSearchRepository: SavedSearchRepository,
     private val settingsRepository: SettingsRepository,
+    private val aiTagResolver: AiTagResolver,
 ) : ViewModel() {
     data class SearchRequest(
         val query: String = "",
@@ -53,7 +60,18 @@ class SearchViewModel(
     private val _feedbackMessage = MutableStateFlow<String?>(null)
     val feedbackMessage = _feedbackMessage.asStateFlow()
 
+    private val _isAiResolving = MutableStateFlow(false)
+    val isAiResolving = _isAiResolving.asStateFlow()
+
     private val _searchRequest = MutableStateFlow(SearchRequest())
+
+    val hasSubmittedSearch = _searchRequest
+        .map { it.query.isNotBlank() }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            false,
+        )
 
     val settings = settingsRepository.settings.stateIn(
         viewModelScope,
@@ -64,13 +82,13 @@ class SearchViewModel(
     val favoriteIds = favoritesRepository.favoriteIds.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        emptySet(),
+        emptySet<String>(),
     )
 
     val pagingData = combine(_searchRequest, settings) { request, appSettings ->
         request to appSettings
     }.flatMapLatest { (request, appSettings) ->
-        if (request.query.isBlank() || !appSettings.hasApiCredentials) {
+        if (request.query.isBlank()) {
             flowOf(PagingData.empty<Rule34Post>())
         } else {
             postsRepository.search(request.query, appSettings)
@@ -84,18 +102,29 @@ class SearchViewModel(
     fun submitSearch() {
         val normalized = _queryText.value.trim()
         _queryText.value = normalized
+        _feedbackMessage.value = null
         _searchRequest.value = SearchRequest(
             query = normalized,
             nonce = _searchRequest.value.nonce + 1,
         )
     }
 
-    fun runSearch(query: String) {
-        _queryText.value = query
-        _searchRequest.value = SearchRequest(
-            query = query.trim(),
-            nonce = _searchRequest.value.nonce + 1,
-        )
+    fun runSearch(
+        query: String,
+        service: BooruService? = null,
+    ) {
+        viewModelScope.launch {
+            if (service != null && settings.value.selectedService != service) {
+                settingsRepository.updateSelectedService(service)
+            }
+            val normalized = query.trim()
+            _queryText.value = normalized
+            _feedbackMessage.value = null
+            _searchRequest.value = SearchRequest(
+                query = normalized,
+                nonce = _searchRequest.value.nonce + 1,
+            )
+        }
     }
 
     fun clearMessage() {
@@ -103,13 +132,18 @@ class SearchViewModel(
     }
 
     fun saveCurrentSearch() {
-        val query = _searchRequest.value.query
+        val query = _queryText.value.trim()
+        val service = settings.value.selectedService
+        if (query.isBlank()) {
+            _feedbackMessage.value = "Сначала введите запрос."
+            return
+        }
         viewModelScope.launch {
-            val saved = savedSearchRepository.save(query)
+            val saved = savedSearchRepository.save(query, service)
             _feedbackMessage.value = if (saved) {
-                "Поисковый запрос сохранён."
+                "Запрос сохранён в ${service.displayName}."
             } else {
-                "Этот запрос уже есть в закладках."
+                "Такой запрос уже есть в закладках ${service.displayName}."
             }
         }
     }
@@ -117,6 +151,59 @@ class SearchViewModel(
     fun toggleFavorite(post: Rule34Post) {
         viewModelScope.launch {
             favoritesRepository.toggle(post)
+        }
+    }
+
+    fun updateHideAiContent(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateAiFilter(enabled)
+        }
+    }
+
+    fun selectService(service: BooruService) {
+        viewModelScope.launch {
+            if (settings.value.selectedService == service) return@launch
+            settingsRepository.updateSelectedService(service)
+            val activeQuery = _searchRequest.value.query
+            if (activeQuery.isNotBlank()) {
+                _searchRequest.value = SearchRequest(
+                    query = activeQuery,
+                    nonce = _searchRequest.value.nonce + 1,
+                )
+            }
+        }
+    }
+
+    fun runAiSearch() {
+        val rawQuery = _queryText.value.trim()
+        if (rawQuery.isBlank() || _isAiResolving.value) return
+
+        viewModelScope.launch {
+            _isAiResolving.value = true
+            try {
+                val currentSettings = settings.value
+                val resolution = aiTagResolver.resolve(
+                    settings = currentSettings,
+                    service = currentSettings.selectedService,
+                    rawQuery = rawQuery,
+                )
+                _queryText.value = resolution.resolvedQuery
+                _feedbackMessage.value = buildString {
+                    append("AI-поиск: ${resolution.resolvedQuery}")
+                    resolution.explanation?.takeIf { it.isNotBlank() }?.let { explanation ->
+                        append(". ")
+                        append(explanation)
+                    }
+                }
+                _searchRequest.value = SearchRequest(
+                    query = resolution.resolvedQuery,
+                    nonce = _searchRequest.value.nonce + 1,
+                )
+            } catch (exception: AiTagResolverException) {
+                _feedbackMessage.value = exception.message ?: "AI-поиск не сработал."
+            } finally {
+                _isAiResolving.value = false
+            }
         }
     }
 }
@@ -143,7 +230,7 @@ class SavedSearchesViewModel(
     val savedSearches = savedSearchRepository.savedSearches.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        emptyList(),
+        emptyList<SavedSearchEntity>(),
     )
 
     fun delete(id: Long) {
@@ -161,9 +248,6 @@ class SavedSearchesViewModel(
 
 data class SettingsFormState(
     val isLoaded: Boolean = false,
-    val apiUserId: String = "",
-    val apiKey: String = "",
-    val hideAiContent: Boolean = false,
     val proxyEnabled: Boolean = false,
     val proxyType: ProxyType = ProxyType.HTTP,
     val proxyHost: String = "",
@@ -185,9 +269,6 @@ class SettingsViewModel(
             val settings = settingsRepository.settings.first()
             _state.value = SettingsFormState(
                 isLoaded = true,
-                apiUserId = settings.apiUserId,
-                apiKey = settings.apiKey,
-                hideAiContent = settings.hideAiContent,
                 proxyEnabled = settings.proxyConfig.enabled,
                 proxyType = settings.proxyConfig.type,
                 proxyHost = settings.proxyConfig.host,
@@ -198,9 +279,6 @@ class SettingsViewModel(
         }
     }
 
-    fun updateApiUserId(value: String) = mutate { copy(apiUserId = value, errorMessage = null, successMessage = null) }
-    fun updateApiKey(value: String) = mutate { copy(apiKey = value, errorMessage = null, successMessage = null) }
-    fun updateHideAiContent(value: Boolean) = mutate { copy(hideAiContent = value, errorMessage = null, successMessage = null) }
     fun updateProxyEnabled(value: Boolean) = mutate { copy(proxyEnabled = value, errorMessage = null, successMessage = null) }
     fun updateProxyType(value: ProxyType) = mutate { copy(proxyType = value, errorMessage = null, successMessage = null) }
     fun updateProxyHost(value: String) = mutate { copy(proxyHost = value, errorMessage = null, successMessage = null) }
@@ -210,16 +288,7 @@ class SettingsViewModel(
 
     fun save() {
         val current = _state.value
-        val apiError = com.perdonus.r34viewer.data.settings.SettingsValidator.validateApiCredentials(
-            userId = current.apiUserId,
-            apiKey = current.apiKey,
-        )
-        if (apiError != null) {
-            _state.value = current.copy(errorMessage = apiError, successMessage = null)
-            return
-        }
-
-        val proxyError = com.perdonus.r34viewer.data.settings.SettingsValidator.validateProxy(
+        val proxyError = SettingsValidator.validateProxy(
             enabled = current.proxyEnabled,
             host = current.proxyHost,
             portText = current.proxyPort,
@@ -230,32 +299,20 @@ class SettingsViewModel(
         }
 
         viewModelScope.launch {
-            settingsRepository.updateSettings(
-                AppSettings(
-                    apiUserId = current.apiUserId.trim(),
-                    apiKey = current.apiKey.trim(),
-                    hideAiContent = current.hideAiContent,
-                    proxyConfig = ProxyConfig(
-                        enabled = current.proxyEnabled,
-                        type = current.proxyType,
-                        host = current.proxyHost.trim(),
-                        port = current.proxyPort.toIntOrNull(),
-                        username = current.proxyUsername.trim(),
-                        password = current.proxyPassword,
-                    ),
+            settingsRepository.updateProxy(
+                ProxyConfig(
+                    enabled = current.proxyEnabled,
+                    type = current.proxyType,
+                    host = current.proxyHost.trim(),
+                    port = current.proxyPort.toIntOrNull(),
+                    username = current.proxyUsername.trim(),
+                    password = current.proxyPassword,
                 ),
             )
             _state.value = current.copy(
-                successMessage = "Настройки сохранены.",
+                successMessage = "Proxy сохранён.",
                 errorMessage = null,
             )
-        }
-    }
-
-    fun setHideAiContent(enabled: Boolean) {
-        mutate { copy(hideAiContent = enabled) }
-        viewModelScope.launch {
-            settingsRepository.updateAiFilter(enabled)
         }
     }
 
@@ -273,6 +330,7 @@ object AppViewModelProvider {
                 favoritesRepository = r34Application().container.favoritesRepository,
                 savedSearchRepository = r34Application().container.savedSearchRepository,
                 settingsRepository = r34Application().container.settingsRepository,
+                aiTagResolver = r34Application().container.aiTagResolver,
             )
         }
         initializer {

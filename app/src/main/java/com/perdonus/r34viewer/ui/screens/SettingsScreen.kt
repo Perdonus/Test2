@@ -29,9 +29,6 @@ import com.perdonus.r34viewer.ui.viewmodel.SettingsFormState
 @Composable
 fun SettingsScreen(
     state: SettingsFormState,
-    onApiUserIdChanged: (String) -> Unit,
-    onApiKeyChanged: (String) -> Unit,
-    onHideAiChanged: (Boolean) -> Unit,
     onProxyEnabledChanged: (Boolean) -> Unit,
     onProxyTypeChanged: (ProxyType) -> Unit,
     onProxyHostChanged: (String) -> Unit,
@@ -45,7 +42,7 @@ fun SettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        CenterAlignedTopAppBar(title = { Text("Settings") })
+        CenterAlignedTopAppBar(title = { Text("Proxy settings") })
 
         Column(
             modifier = Modifier
@@ -60,66 +57,19 @@ fun SettingsScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text("Rule34 API", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Получить user_id и api_key можно в настройках аккаунта rule34.xxx.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    OutlinedTextField(
-                        value = state.apiUserId,
-                        onValueChange = onApiUserIdChanged,
-                        label = { Text("user_id") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = state.apiKey,
-                        onValueChange = onApiKeyChanged,
-                        label = { Text("api_key") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Hide AI content", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                "Скрывает посты с тегами ai_generated и ai_assisted.",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                        Switch(
-                            checked = state.hideAiContent,
-                            onCheckedChange = onHideAiChanged,
-                        )
-                    }
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Proxy", style = MaterialTheme.typography.titleMedium)
+                        Text("Use proxy", style = MaterialTheme.typography.titleMedium)
                         Switch(
                             checked = state.proxyEnabled,
                             onCheckedChange = onProxyEnabledChanged,
                         )
                     }
                     Text(
-                        "Поддерживаются HTTP и SOCKS. Настройки применяются ко всем сетевым запросам приложения.",
+                        "Поддерживаются HTTP и SOCKS. Эти настройки применяются и к booru-сервисам, и к AI-поиску.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -190,7 +140,7 @@ fun SettingsScreen(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Save settings")
+                Text("Save proxy")
             }
         }
     }

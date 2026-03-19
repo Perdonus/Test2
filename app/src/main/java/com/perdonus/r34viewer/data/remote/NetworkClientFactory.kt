@@ -11,10 +11,16 @@ import java.net.Authenticator
 import java.net.InetSocketAddress
 import java.net.PasswordAuthentication
 import java.net.Proxy
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 class NetworkClientFactory {
+    private val clients = ConcurrentHashMap<String, OkHttpClient>()
+
     fun create(settings: AppSettings): OkHttpClient {
+        val signature = settings.proxyConfig.signature()
+        clients[signature]?.let { return it }
+
         val proxy = settings.proxyConfig.toJavaProxy()
         installSocksAuthenticator(settings.proxyConfig)
 
@@ -26,7 +32,7 @@ class NetworkClientFactory {
             }
         }
 
-        return OkHttpClient.Builder()
+        val client = OkHttpClient.Builder()
             .proxy(proxy)
             .proxyAuthenticator { _, response ->
                 val config = settings.proxyConfig
@@ -55,6 +61,9 @@ class NetworkClientFactory {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
+
+        clients[signature] = client
+        return client
     }
 
     private fun installSocksAuthenticator(config: ProxyConfig) {

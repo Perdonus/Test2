@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -29,10 +30,11 @@ import com.perdonus.r34viewer.ui.viewmodel.FavoritesViewModel
 import com.perdonus.r34viewer.ui.viewmodel.SavedSearchesViewModel
 import com.perdonus.r34viewer.ui.viewmodel.SearchViewModel
 import com.perdonus.r34viewer.ui.viewmodel.SettingsViewModel
-import com.perdonus.r34viewer.data.remote.NetworkClientFactory
+import com.perdonus.r34viewer.R34Application
 
 @Composable
 fun R34App() {
+    val application = LocalContext.current.applicationContext as R34Application
     val navController = rememberNavController()
     val appViewModel: AppViewModel = viewModel(factory = AppViewModelProvider.Factory)
     val searchViewModel: SearchViewModel = viewModel(factory = AppViewModelProvider.Factory)
@@ -43,6 +45,8 @@ fun R34App() {
     val selectedPost by appViewModel.selectedPost.collectAsStateWithLifecycle()
     val query by searchViewModel.queryText.collectAsStateWithLifecycle()
     val feedbackMessage by searchViewModel.feedbackMessage.collectAsStateWithLifecycle()
+    val hasSubmittedSearch by searchViewModel.hasSubmittedSearch.collectAsStateWithLifecycle()
+    val isAiResolving by searchViewModel.isAiResolving.collectAsStateWithLifecycle()
     val favoriteIds by searchViewModel.favoriteIds.collectAsStateWithLifecycle()
     val settings by searchViewModel.settings.collectAsStateWithLifecycle()
     val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
@@ -52,7 +56,7 @@ fun R34App() {
     val pagingItems = searchViewModel.pagingData.collectAsLazyPagingItems()
 
     val okHttpClient = remember(settings.proxyConfig.signature()) {
-        NetworkClientFactory().create(settings)
+        application.container.networkClientFactory.create(settings)
     }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -91,15 +95,19 @@ fun R34App() {
             composable(AppDestination.Search.route) {
                 SearchScreen(
                     query = query,
+                    hasSubmittedSearch = hasSubmittedSearch,
                     pagingItems = pagingItems,
                     favoriteIds = favoriteIds,
                     settings = settings,
                     feedbackMessage = feedbackMessage,
+                    isAiResolving = isAiResolving,
                     okHttpClient = okHttpClient,
                     onQueryChanged = searchViewModel::updateQuery,
                     onSearch = searchViewModel::submitSearch,
+                    onAiSearch = searchViewModel::runAiSearch,
                     onSaveSearch = searchViewModel::saveCurrentSearch,
-                    onToggleAiFilter = settingsViewModel::setHideAiContent,
+                    onToggleAiFilter = searchViewModel::updateHideAiContent,
+                    onSelectService = searchViewModel::selectService,
                     onOpenSettings = {
                         navController.navigate(AppDestination.Settings.route)
                     },
@@ -127,8 +135,8 @@ fun R34App() {
             composable(AppDestination.SavedSearches.route) {
                 SavedSearchesScreen(
                     savedSearches = savedSearches,
-                    onRunSearch = { queryValue ->
-                        searchViewModel.runSearch(queryValue)
+                    onRunSearch = { search ->
+                        searchViewModel.runSearch(search.query, search.service)
                         navController.navigate(AppDestination.Search.route) {
                             popUpTo(navController.graph.startDestinationId) {
                                 saveState = true
@@ -145,9 +153,6 @@ fun R34App() {
             composable(AppDestination.Settings.route) {
                 SettingsScreen(
                     state = settingsForm,
-                    onApiUserIdChanged = settingsViewModel::updateApiUserId,
-                    onApiKeyChanged = settingsViewModel::updateApiKey,
-                    onHideAiChanged = settingsViewModel::updateHideAiContent,
                     onProxyEnabledChanged = settingsViewModel::updateProxyEnabled,
                     onProxyTypeChanged = settingsViewModel::updateProxyType,
                     onProxyHostChanged = settingsViewModel::updateProxyHost,
@@ -161,14 +166,14 @@ fun R34App() {
             composable(AppDestination.Details.route) {
                 PostDetailScreen(
                     post = selectedPost,
-                    isFavorite = selectedPost?.id?.let(favoriteIds::contains) == true,
+                    isFavorite = selectedPost?.serviceScopedId?.let(favoriteIds::contains) == true,
                     okHttpClient = okHttpClient,
                     onBack = { navController.popBackStack() },
                     onToggleFavorite = { post ->
                         searchViewModel.toggleFavorite(post)
                     },
                     onTagSelected = { tag ->
-                        searchViewModel.runSearch(tag)
+                        searchViewModel.runSearch(tag, selectedPost?.service)
                         navController.navigate(AppDestination.Search.route) {
                             popUpTo(navController.graph.startDestinationId) {
                                 saveState = true

@@ -1,13 +1,17 @@
 package com.perdonus.r34viewer.data.local
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
+import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.PostMediaType
 import com.perdonus.r34viewer.data.model.Rule34Post
 
-@Entity(tableName = "favorite_posts")
+@Entity(
+    tableName = "favorite_posts",
+    primaryKeys = ["serviceId", "id"],
+)
 data class FavoritePostEntity(
-    @PrimaryKey val id: Int,
+    val serviceId: String,
+    val id: Int,
     val previewUrl: String?,
     val sampleUrl: String?,
     val fileUrl: String,
@@ -21,6 +25,7 @@ data class FavoritePostEntity(
 )
 
 fun FavoritePostEntity.toDomain(): Rule34Post = Rule34Post(
+    service = BooruService.fromId(serviceId),
     id = id,
     previewUrl = previewUrl,
     sampleUrl = sampleUrl,
@@ -34,6 +39,7 @@ fun FavoritePostEntity.toDomain(): Rule34Post = Rule34Post(
 )
 
 fun Rule34Post.toEntity(savedAt: Long = System.currentTimeMillis()): FavoritePostEntity = FavoritePostEntity(
+    serviceId = service.id,
     id = id,
     previewUrl = previewUrl,
     sampleUrl = sampleUrl,

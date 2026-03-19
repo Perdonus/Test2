@@ -2,6 +2,7 @@ package com.perdonus.r34viewer.data.remote
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
+import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.PostMediaType
 import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.data.model.SearchQueryBuilder
@@ -18,9 +19,9 @@ import kotlinx.serialization.json.intOrNull
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 
-class Rule34ApiException(message: String) : Exception(message)
+class BooruApiException(message: String) : Exception(message)
 
-class Rule34ApiSource(
+class BooruApiSource(
     private val networkClientFactory: NetworkClientFactory,
 ) {
     private val json = Json {
@@ -34,32 +35,17 @@ class Rule34ApiSource(
         page: Int,
         limit: Int,
     ): List<Rule34Post> = withContext(Dispatchers.IO) {
-        if (!settings.hasApiCredentials) {
-            throw Rule34ApiException("Нужно заполнить user_id и api_key в настройках.")
-        }
-
+        val service = settings.selectedService
         val query = SearchQueryBuilder.build(rawQuery, settings.hideAiContent)
         val client = networkClientFactory.create(settings)
-        val url = "https://api.rule34.xxx/index.php".toHttpUrl().newBuilder()
-            .addQueryParameter("page", "dapi")
-            .addQueryParameter("s", "post")
-            .addQueryParameter("q", "index")
-            .addQueryParameter("json", "1")
-            .addQueryParameter("user_id", settings.apiUserId)
-            .addQueryParameter("api_key", settings.apiKey)
-            .addQueryParameter("limit", limit.toString())
-            .addQueryParameter("pid", page.toString())
-            .addQueryParameter("tags", query)
-            .build()
-
         val request = Request.Builder()
-            .url(url)
+            .url(buildUrl(service, query, page, limit))
             .get()
             .build()
 
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                throw Rule34ApiException("Ошибка API: HTTP ${response.code}")
+                throw BooruApiException("${service.displayName}: HTTP ${response.code}")
             }
 
             val body = response.body?.string().orEmpty().trim()
@@ -67,20 +53,59 @@ class Rule34ApiSource(
 
             val element = json.parseToJsonElement(body)
             return@withContext when (element) {
-                is JsonArray -> element.mapNotNull { it.asPostOrNull(settings.hideAiContent) }
-                is JsonObject -> throw Rule34ApiException(
+                is JsonArray -> element.mapNotNull { it.asPostOrNull(service, settings.hideAiContent) }
+                is JsonObject -> throw BooruApiException(
                     element["message"]?.primitiveContentOrNull()
-                        ?: "API вернул неожиданный объект.",
+                        ?: "${service.displayName} вернул неожиданный объект.",
                 )
-                is JsonPrimitive -> throw Rule34ApiException(
-                    element.primitiveContentOrNull() ?: "API вернул неожиданный ответ.",
+                is JsonPrimitive -> throw BooruApiException(
+                    element.primitiveContentOrNull() ?: "${service.displayName} вернул неожиданный ответ.",
                 )
                 else -> emptyList()
             }
         }
     }
 
-    private fun JsonElement.asPostOrNull(hideAiContent: Boolean): Rule34Post? {
+    private fun buildUrl(
+        service: BooruService,
+        query: String,
+        page: Int,
+        limit: Int,
+    ) = when (service) {
+        BooruService.RULE34 -> "https://api.rule34.xxx/index.php".toHttpUrl().newBuilder()
+            .addQueryParameter("page", "dapi")
+            .addQueryParameter("s", "post")
+            .addQueryParameter("q", "index")
+            .addQueryParameter("json", "1")
+            .addQueryParameter("user_id", ServiceSecrets.RULE34_USER_ID)
+            .addQueryParameter("api_key", ServiceSecrets.RULE34_API_KEY)
+            .addQueryParameter("limit", limit.toString())
+            .addQueryParameter("pid", page.toString())
+            .addQueryParameter("tags", query)
+            .build()
+
+        BooruService.KONACHAN -> "https://konachan.com/post.json".toHttpUrl().newBuilder()
+            .addQueryParameter("limit", limit.toString())
+            .addQueryParameter("page", (page + 1).toString())
+            .addQueryParameter("api_key", ServiceSecrets.KONACHAN_API_KEY)
+            .addQueryParameter("tags", query)
+            .build()
+
+        BooruService.XBOORU -> "https://xbooru.com/index.php".toHttpUrl().newBuilder()
+            .addQueryParameter("page", "dapi")
+            .addQueryParameter("s", "post")
+            .addQueryParameter("q", "index")
+            .addQueryParameter("json", "1")
+            .addQueryParameter("limit", limit.toString())
+            .addQueryParameter("pid", page.toString())
+            .addQueryParameter("tags", query)
+            .build()
+    }
+
+    private fun JsonElement.asPostOrNull(
+        service: BooruService,
+        hideAiContent: Boolean,
+    ): Rule34Post? {
         val content = this as? JsonObject ?: return null
         val fileUrl = content["file_url"].primitiveContentOrNull().orEmpty()
         if (fileUrl.isBlank()) return null
@@ -92,6 +117,7 @@ class Rule34ApiSource(
             .filter { it.isNotBlank() }
 
         val post = Rule34Post(
+            service = service,
             id = content["id"].primitiveIntOrZero(),
             previewUrl = content["preview_url"].primitiveContentOrNull(),
             sampleUrl = content["sample_url"].primitiveContentOrNull(),
@@ -116,8 +142,8 @@ class Rule34ApiSource(
     }
 }
 
-class Rule34PagingSource(
-    private val apiSource: Rule34ApiSource,
+class BooruPagingSource(
+    private val apiSource: BooruApiSource,
     private val settings: AppSettings,
     private val query: String,
     private val pageSize: Int,

@@ -4,6 +4,7 @@ private const val AI_GENERATED_TAG = "ai_generated"
 private const val AI_ASSISTED_TAG = "ai_assisted"
 
 data class Rule34Post(
+    val service: BooruService,
     val id: Int,
     val previewUrl: String?,
     val sampleUrl: String?,
@@ -15,8 +16,14 @@ data class Rule34Post(
     val height: Int,
     val mediaType: PostMediaType,
 ) {
+    val serviceScopedId: String
+        get() = "${service.id}:$id"
+
     val thumbnailUrl: String
         get() = previewUrl ?: sampleUrl ?: fileUrl
+
+    val detailImageUrl: String
+        get() = sampleUrl ?: fileUrl
 
     val isVideo: Boolean
         get() = mediaType == PostMediaType.VIDEO

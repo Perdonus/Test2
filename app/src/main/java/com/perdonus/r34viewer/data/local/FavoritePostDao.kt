@@ -10,15 +10,15 @@ interface FavoritePostDao {
     @Query("SELECT * FROM favorite_posts ORDER BY savedAt DESC")
     fun observeAll(): Flow<List<FavoritePostEntity>>
 
-    @Query("SELECT id FROM favorite_posts")
-    fun observeIds(): Flow<List<Int>>
+    @Query("SELECT * FROM favorite_posts WHERE serviceId = :serviceId ORDER BY savedAt DESC")
+    fun observeAll(serviceId: String): Flow<List<FavoritePostEntity>>
 
-    @Query("SELECT * FROM favorite_posts WHERE id = :id LIMIT 1")
-    suspend fun getById(id: Int): FavoritePostEntity?
+    @Query("SELECT * FROM favorite_posts WHERE serviceId = :serviceId AND id = :id LIMIT 1")
+    suspend fun getById(serviceId: String, id: Int): FavoritePostEntity?
 
     @Upsert
     suspend fun upsert(post: FavoritePostEntity)
 
-    @Query("DELETE FROM favorite_posts WHERE id = :id")
-    suspend fun deleteById(id: Int)
+    @Query("DELETE FROM favorite_posts WHERE serviceId = :serviceId AND id = :id")
+    suspend fun deleteById(serviceId: String, id: Int)
 }

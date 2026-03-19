@@ -107,7 +107,7 @@ fun PostCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(8.dp)
-                    .testTag("favoriteButton_${post.id}"),
+                    .testTag("favoriteButton_${post.serviceScopedId}"),
                 onClick = { onToggleFavorite(post) },
             ) {
                 Icon(
@@ -124,7 +124,7 @@ fun PostCard(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
-                    text = "#${post.id}  ${post.rating.uppercase()}",
+                    text = "${post.service.displayName}  #${post.id}  ${post.rating.uppercase()}",
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(

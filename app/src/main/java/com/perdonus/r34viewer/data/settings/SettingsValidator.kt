@@ -1,16 +1,6 @@
 package com.perdonus.r34viewer.data.settings
 
 object SettingsValidator {
-    fun validateApiCredentials(userId: String, apiKey: String): String? {
-        if (userId.isBlank()) {
-            return "Введите user_id для rule34 API."
-        }
-        if (apiKey.isBlank()) {
-            return "Введите api_key для rule34 API."
-        }
-        return null
-    }
-
     fun validateProxy(
         enabled: Boolean,
         host: String,

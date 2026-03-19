@@ -102,7 +102,7 @@ fun PostDetailScreen(
             .verticalScroll(rememberScrollState()),
     ) {
         CenterAlignedTopAppBar(
-            title = { Text("#${post.id}") },
+            title = { Text("${post.service.displayName} #${post.id}") },
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.Outlined.ArrowBack, contentDescription = "Back")
@@ -136,7 +136,7 @@ fun PostDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                url = post.fileUrl,
+                url = post.detailImageUrl,
                 okHttpClient = okHttpClient,
                 contentDescription = "Post ${post.id}",
                 contentScale = ContentScale.FillWidth,
@@ -158,6 +158,7 @@ fun PostDetailScreen(
                 ) {
                     Text("Media info", style = MaterialTheme.typography.titleMedium)
                     Text("Type: ${if (post.isVideo) "Video" else "Image"}")
+                    Text("Service: ${post.service.displayName}")
                     Text("Rating: ${post.rating.uppercase()}")
                     Text("Score: ${post.score}")
                     Text("Size: ${post.width} x ${post.height}")

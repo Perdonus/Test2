@@ -36,7 +36,7 @@ import com.perdonus.r34viewer.data.local.SavedSearchEntity
 @Composable
 fun SavedSearchesScreen(
     savedSearches: List<SavedSearchEntity>,
-    onRunSearch: (String) -> Unit,
+    onRunSearch: (SavedSearchEntity) -> Unit,
     onRename: (Long, String) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
@@ -79,10 +79,11 @@ fun SavedSearchesScreen(
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Text(search.label, style = MaterialTheme.typography.titleMedium)
+                            Text(search.service.displayName, style = MaterialTheme.typography.labelMedium)
                             Text(search.query, style = MaterialTheme.typography.bodyMedium)
                         }
                         Row {
-                            IconButton(onClick = { onRunSearch(search.query) }) {
+                            IconButton(onClick = { onRunSearch(search) }) {
                                 Icon(Icons.Outlined.PlayArrow, contentDescription = "Run search")
                             }
                             IconButton(

@@ -11,6 +11,9 @@ interface SavedSearchDao {
     @Query("SELECT * FROM saved_searches ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<SavedSearchEntity>>
 
+    @Query("SELECT * FROM saved_searches WHERE serviceId = :serviceId ORDER BY createdAt DESC")
+    fun observeAll(serviceId: String): Flow<List<SavedSearchEntity>>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(search: SavedSearchEntity): Long
 

@@ -1,6 +1,7 @@
 package com.perdonus.r34viewer.data.settings
 
 import android.content.Context
+import com.perdonus.r34viewer.data.model.BooruService
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -16,9 +17,11 @@ import java.io.IOException
 interface SettingsRepository {
     val settings: Flow<AppSettings>
 
-    suspend fun updateSettings(settings: AppSettings)
-
     suspend fun updateAiFilter(enabled: Boolean)
+
+    suspend fun updateSelectedService(service: BooruService)
+
+    suspend fun updateProxy(proxyConfig: ProxyConfig)
 }
 
 private val Context.dataStore by preferencesDataStore(name = "r34_settings")
@@ -37,17 +40,9 @@ class SettingsRepositoryImpl(
         }
         .map(::toAppSettings)
 
-    override suspend fun updateSettings(settings: AppSettings) {
+    override suspend fun updateSelectedService(service: BooruService) {
         context.dataStore.edit { preferences ->
-            preferences[Keys.ApiUserId] = settings.apiUserId
-            preferences[Keys.ApiKey] = settings.apiKey
-            preferences[Keys.HideAiContent] = settings.hideAiContent
-            preferences[Keys.ProxyEnabled] = settings.proxyConfig.enabled
-            preferences[Keys.ProxyType] = settings.proxyConfig.type.name
-            preferences[Keys.ProxyHost] = settings.proxyConfig.host
-            settings.proxyConfig.port?.let { preferences[Keys.ProxyPort] = it } ?: preferences.remove(Keys.ProxyPort)
-            preferences[Keys.ProxyUsername] = settings.proxyConfig.username
-            preferences[Keys.ProxyPassword] = settings.proxyConfig.password
+            preferences[Keys.SelectedService] = service.id
         }
     }
 
@@ -57,14 +52,25 @@ class SettingsRepositoryImpl(
         }
     }
 
+    override suspend fun updateProxy(proxyConfig: ProxyConfig) {
+        context.dataStore.edit { preferences ->
+            preferences[Keys.ProxyEnabled] = proxyConfig.enabled
+            preferences[Keys.ProxyType] = proxyConfig.type.name
+            preferences[Keys.ProxyHost] = proxyConfig.host
+            proxyConfig.port?.let { preferences[Keys.ProxyPort] = it } ?: preferences.remove(Keys.ProxyPort)
+            preferences[Keys.ProxyUsername] = proxyConfig.username
+            preferences[Keys.ProxyPassword] = proxyConfig.password
+        }
+    }
+
     private fun toAppSettings(preferences: Preferences): AppSettings {
+        val selectedService = BooruService.fromId(preferences[Keys.SelectedService])
         val proxyType = runCatching {
             ProxyType.valueOf(preferences[Keys.ProxyType] ?: ProxyType.HTTP.name)
         }.getOrDefault(ProxyType.HTTP)
 
         return AppSettings(
-            apiUserId = preferences[Keys.ApiUserId].orEmpty(),
-            apiKey = preferences[Keys.ApiKey].orEmpty(),
+            selectedService = selectedService,
             hideAiContent = preferences[Keys.HideAiContent] ?: false,
             proxyConfig = ProxyConfig(
                 enabled = preferences[Keys.ProxyEnabled] ?: false,
@@ -78,8 +84,7 @@ class SettingsRepositoryImpl(
     }
 
     private object Keys {
-        val ApiUserId = stringPreferencesKey("api_user_id")
-        val ApiKey = stringPreferencesKey("api_key")
+        val SelectedService = stringPreferencesKey("selected_service")
         val HideAiContent = booleanPreferencesKey("hide_ai_content")
         val ProxyEnabled = booleanPreferencesKey("proxy_enabled")
         val ProxyType = stringPreferencesKey("proxy_type")

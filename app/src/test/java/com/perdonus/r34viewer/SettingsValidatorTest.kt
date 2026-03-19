@@ -7,10 +7,10 @@ import org.junit.Test
 
 class SettingsValidatorTest {
     @Test
-    fun `requires api credentials`() {
+    fun `requires proxy host when proxy enabled`() {
         assertEquals(
-            "Введите user_id для rule34 API.",
-            SettingsValidator.validateApiCredentials("", "secret"),
+            "Для proxy нужен host.",
+            SettingsValidator.validateProxy(enabled = true, host = "", portText = "8080"),
         )
     }
 

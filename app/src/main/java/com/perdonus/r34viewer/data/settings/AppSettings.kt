@@ -1,5 +1,7 @@
 package com.perdonus.r34viewer.data.settings
 
+import com.perdonus.r34viewer.data.model.BooruService
+
 enum class ProxyType {
     HTTP,
     SOCKS,
@@ -27,11 +29,7 @@ data class ProxyConfig(
 }
 
 data class AppSettings(
-    val apiUserId: String = "",
-    val apiKey: String = "",
+    val selectedService: BooruService = BooruService.RULE34,
     val hideAiContent: Boolean = false,
     val proxyConfig: ProxyConfig = ProxyConfig(),
-) {
-    val hasApiCredentials: Boolean
-        get() = apiUserId.isNotBlank() && apiKey.isNotBlank()
-}
+)

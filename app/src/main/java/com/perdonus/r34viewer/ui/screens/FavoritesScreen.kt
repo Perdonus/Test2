@@ -48,7 +48,7 @@ fun FavoritesScreen(
         } else {
             items(
                 items = favorites,
-                key = { it.id },
+                key = { it.serviceScopedId },
             ) { post ->
                 PostCard(
                     post = post,
