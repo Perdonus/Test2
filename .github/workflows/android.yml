@@ -58,14 +58,16 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Gradle log tail" >> "$GITHUB_STEP_SUMMARY"
           echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          clean_log_file="$(mktemp)"
           if [ -f gradle-test.log ]; then
-            tail -n 120 gradle-test.log >> "$GITHUB_STEP_SUMMARY"
+            sed -r 's/\x1B\[[0-9;]*[[:alpha:]]//g' gradle-test.log > "$clean_log_file"
+            tail -n 120 "$clean_log_file" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "gradle-test.log was not created." >> "$GITHUB_STEP_SUMMARY"
           fi
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          key_errors="$(grep -E '(^e: )|( error: )|Unresolved reference|Compilation error|Execution failed for task|FAILURE: Build failed with an exception\\.' gradle-test.log | tail -n 20 || true)"
+          key_errors="$(grep -E '(^e: )|( error: )|Unresolved reference|Compilation error|Execution failed for task|FAILURE: Build failed with an exception\\.|Caused by:|What went wrong' "$clean_log_file" | tail -n 20 || true)"
           if [ -n "$key_errors" ]; then
             echo "### Key error lines" >> "$GITHUB_STEP_SUMMARY"
             echo '```text' >> "$GITHUB_STEP_SUMMARY"
@@ -77,9 +79,9 @@ jobs:
           elif [ -f gradle-test.log ]; then
             echo "### Last 25 log lines" >> "$GITHUB_STEP_SUMMARY"
             echo '```text' >> "$GITHUB_STEP_SUMMARY"
-            tail -n 25 gradle-test.log >> "$GITHUB_STEP_SUMMARY"
+            tail -n 25 "$clean_log_file" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
-            tail -n 12 gradle-test.log | while IFS= read -r line; do
+            tail -n 20 "$clean_log_file" | while IFS= read -r line; do
               [ -n "$line" ] || continue
               sanitized="$(printf '%s' "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
               echo "::error::$sanitized"
