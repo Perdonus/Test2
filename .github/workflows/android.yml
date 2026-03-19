@@ -34,7 +34,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          ./gradlew -Pkotlin.compiler.execution.strategy=in-process testDebugUnitTest --stacktrace --info | tee gradle-test.log
+          ./gradlew -Pkotlin.compiler.execution.strategy=in-process testDebugUnitTest --stacktrace --info 2>&1 | tee gradle-test.log
 
       - name: Publish test diagnostics
         if: always()
@@ -103,7 +103,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          ./gradlew -Pkotlin.compiler.execution.strategy=in-process assembleDebug --stacktrace --info | tee gradle-assemble.log
+          ./gradlew -Pkotlin.compiler.execution.strategy=in-process assembleDebug --stacktrace --info 2>&1 | tee gradle-assemble.log
 
       - name: Upload debug APK
         if: always() && steps.assemble-debug.outcome == 'success'
