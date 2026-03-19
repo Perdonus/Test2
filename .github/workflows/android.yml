@@ -74,6 +74,16 @@ jobs:
             printf '%s\n' "$key_errors" | head -n 5 | while IFS= read -r line; do
               echo "::error::$line"
             done
+          elif [ -f gradle-test.log ]; then
+            echo "### Last 25 log lines" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 25 gradle-test.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 12 gradle-test.log | while IFS= read -r line; do
+              [ -n "$line" ] || continue
+              sanitized="$(printf '%s' "$line" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+              echo "::error::$sanitized"
+            done
           fi
           if find app/build/test-results -name '*.xml' -type f | grep -q .; then
             failures=$(grep -Rho 'failures=\"[0-9]\\+\"' app/build/test-results | sed 's/[^0-9]//g' | awk '{s+=$1} END {print s+0}')
