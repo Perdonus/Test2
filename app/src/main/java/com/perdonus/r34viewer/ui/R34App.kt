@@ -46,7 +46,7 @@ fun R34App() {
     val query by searchViewModel.queryText.collectAsStateWithLifecycle()
     val feedbackMessage by searchViewModel.feedbackMessage.collectAsStateWithLifecycle()
     val hasSubmittedSearch by searchViewModel.hasSubmittedSearch.collectAsStateWithLifecycle()
-    val isAiResolving by searchViewModel.isAiResolving.collectAsStateWithLifecycle()
+    val isResolvingQuery by searchViewModel.isResolvingQuery.collectAsStateWithLifecycle()
     val favoriteIds by searchViewModel.favoriteIds.collectAsStateWithLifecycle()
     val settings by searchViewModel.settings.collectAsStateWithLifecycle()
     val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
@@ -100,7 +100,7 @@ fun R34App() {
                     favoriteIds = favoriteIds,
                     settings = settings,
                     feedbackMessage = feedbackMessage,
-                    isAiResolving = isAiResolving,
+                    isResolvingQuery = isResolvingQuery,
                     okHttpClient = okHttpClient,
                     onQueryChanged = searchViewModel::updateQuery,
                     onSearch = searchViewModel::submitSearch,

@@ -70,7 +70,7 @@ fun SearchScreen(
     favoriteIds: Set<String>,
     settings: AppSettings,
     feedbackMessage: String?,
-    isAiResolving: Boolean,
+    isResolvingQuery: Boolean,
     okHttpClient: OkHttpClient,
     onQueryChanged: (String) -> Unit,
     onSearch: () -> Unit,
@@ -95,11 +95,11 @@ fun SearchScreen(
         item(span = { GridItemSpan(maxLineSpan) }) {
             CenterAlignedTopAppBar(
                 title = {
-                    Text("Booru Native")
+                    Text("Просмотрщик booru")
                 },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Settings")
+                        Icon(Icons.Outlined.Settings, contentDescription = "Настройки")
                     }
                 },
             )
@@ -112,13 +112,13 @@ fun SearchScreen(
                     value = query,
                     onValueChange = onQueryChanged,
                     singleLine = true,
-                    label = { Text("Search tags or name") },
+                    label = { Text("Поиск по имени или тегам") },
                     leadingIcon = {
                         Icon(Icons.Outlined.Search, contentDescription = null)
                     },
                     trailingIcon = {
-                        IconButton(onClick = onSearch, enabled = !isAiResolving) {
-                            Icon(Icons.Outlined.Search, contentDescription = "Run search")
+                        IconButton(onClick = onSearch, enabled = !isResolvingQuery) {
+                            Icon(Icons.Outlined.Search, contentDescription = "Запустить поиск")
                         }
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -131,26 +131,26 @@ fun SearchScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     SearchActionButton(
-                        enabled = !isAiResolving,
+                        enabled = !isResolvingQuery,
                         onClick = onSearch,
                         onLongClick = {
                             if (query.isNotBlank()) {
                                 showAiDialog = true
                             }
                         },
-                        text = if (isAiResolving) "AI..." else "Search",
+                        text = if (isResolvingQuery) "Ищу..." else "Поиск",
                     )
 
-                    Button(onClick = onSaveSearch, enabled = query.isNotBlank() && !isAiResolving) {
+                    Button(onClick = onSaveSearch, enabled = query.isNotBlank() && !isResolvingQuery) {
                         Icon(Icons.Outlined.BookmarkBorder, contentDescription = null)
-                        Text(" Save query")
+                        Text(" Сохранить запрос")
                     }
 
                     FilterChip(
                         selected = settings.hideAiContent,
                         onClick = { onToggleAiFilter(!settings.hideAiContent) },
                         label = {
-                            Text("Hide AI posts")
+                            Text("Скрывать ИИ-посты")
                         },
                     )
                 }
@@ -169,6 +169,28 @@ fun SearchScreen(
                     }
                 }
 
+                if (hasSubmittedSearch) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = "Результаты: ${settings.selectedService.displayName}",
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            if (query.isNotBlank()) {
+                                Text(
+                                    text = "Текущий запрос: $query",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                }
+
                 feedbackMessage?.let { message ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -181,7 +203,7 @@ fun SearchScreen(
                             Text(message, style = MaterialTheme.typography.bodyMedium)
                             ElevatedAssistChip(
                                 onClick = onDismissMessage,
-                                label = { Text("Hide") },
+                                label = { Text("Скрыть") },
                             )
                         }
                     }
@@ -195,9 +217,9 @@ fun SearchScreen(
                     EmptyState(
                         title = "Поиск по тегам",
                         subtitle = if (query.isBlank()) {
-                            "Введите теги или имя персонажа. Поиск стартует только по кнопке Search. Долгое нажатие на Search запускает AI-подбор тегов."
+                            "Введите теги или имя персонажа. Поиск стартует только по кнопке «Поиск». Долгое нажатие на неё запускает ИИ-подбор тегов."
                         } else {
-                            "Запрос введён, но поиск ещё не запускался. Нажмите Search или удерживайте кнопку для AI-поиска."
+                            "Запрос введён, но поиск ещё не запускался. Нажмите «Поиск» или удерживайте кнопку для ИИ-поиска."
                         },
                     )
                 }
@@ -221,7 +243,7 @@ fun SearchScreen(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     EmptyState(
                         title = "Не удалось загрузить посты",
-                        subtitle = message.ifBlank { "Проверьте proxy или переключите сервис." },
+                        subtitle = message.ifBlank { "Проверьте прокси или переключите сервис." },
                     )
                 }
             }
@@ -231,7 +253,7 @@ fun SearchScreen(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     EmptyState(
                         title = "Ничего не найдено",
-                        subtitle = "Попробуйте другие теги, AI-поиск или другой сервис.",
+                        subtitle = "Попробуйте другие теги, ИИ-поиск или другой сервис.",
                     )
                 }
             }
@@ -270,10 +292,10 @@ fun SearchScreen(
     if (showAiDialog) {
         AlertDialog(
             onDismissRequest = { showAiDialog = false },
-            title = { Text("AI search") },
+            title = { Text("ИИ-поиск") },
             text = {
                 Text(
-                    "Преобразовать запрос в booru-теги для ${settings.selectedService.displayName}?",
+                    "Попросить сервер найти персонажа, сверить теги на booru и подобрать запрос для ${settings.selectedService.displayName}?",
                 )
             },
             confirmButton = {
@@ -283,12 +305,12 @@ fun SearchScreen(
                         onAiSearch()
                     },
                 ) {
-                    Text("Run AI")
+                    Text("Запустить ИИ")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAiDialog = false }) {
-                    Text("Cancel")
+                    Text("Отмена")
                 }
             },
         )

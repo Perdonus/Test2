@@ -12,11 +12,11 @@ sealed class AppDestination(
     val label: String,
     val icon: ImageVector,
 ) {
-    data object Search : AppDestination("search", "Search", Icons.Outlined.Search)
-    data object Favorites : AppDestination("favorites", "Favorites", Icons.Outlined.FavoriteBorder)
-    data object SavedSearches : AppDestination("saved_searches", "Bookmarks", Icons.Outlined.BookmarkBorder)
-    data object Settings : AppDestination("settings", "Settings", Icons.Outlined.Settings)
-    data object Details : AppDestination("details", "Post", Icons.Outlined.FavoriteBorder)
+    data object Search : AppDestination("search", "Поиск", Icons.Outlined.Search)
+    data object Favorites : AppDestination("favorites", "Избранное", Icons.Outlined.FavoriteBorder)
+    data object SavedSearches : AppDestination("saved_searches", "Закладки", Icons.Outlined.BookmarkBorder)
+    data object Settings : AppDestination("settings", "Настройки", Icons.Outlined.Settings)
+    data object Details : AppDestination("details", "Пост", Icons.Outlined.FavoriteBorder)
 }
 
 val topLevelDestinations = listOf(

@@ -1,11 +1,10 @@
 package com.perdonus.r34viewer
 
 import android.app.Application
-import androidx.room.Room
-import com.perdonus.r34viewer.data.local.AppDatabase
 import com.perdonus.r34viewer.data.remote.AiTagResolver
 import com.perdonus.r34viewer.data.remote.BooruApiSource
 import com.perdonus.r34viewer.data.remote.NetworkClientFactory
+import com.perdonus.r34viewer.data.remote.RuleServerStore
 import com.perdonus.r34viewer.data.repository.FavoritesRepository
 import com.perdonus.r34viewer.data.repository.PostsRepository
 import com.perdonus.r34viewer.data.repository.SavedSearchRepository
@@ -17,19 +16,12 @@ class R34Application : Application() {
 }
 
 class AppContainer(application: Application) {
-    private val database: AppDatabase = Room.databaseBuilder(
-        application,
-        AppDatabase::class.java,
-        "r34_native.db",
-    )
-        .fallbackToDestructiveMigration()
-        .build()
-
-    val settingsRepository: SettingsRepository = SettingsRepositoryImpl(application)
+    private val ruleServerStore = RuleServerStore()
+    val settingsRepository: SettingsRepository = SettingsRepositoryImpl(application, ruleServerStore)
     val networkClientFactory = NetworkClientFactory()
     private val apiSource = BooruApiSource(networkClientFactory)
-    val aiTagResolver = AiTagResolver(networkClientFactory)
+    val aiTagResolver = AiTagResolver(ruleServerStore)
     val postsRepository = PostsRepository(apiSource)
-    val favoritesRepository = FavoritesRepository(database.favoritePostDao())
-    val savedSearchRepository = SavedSearchRepository(database.savedSearchDao())
+    val favoritesRepository = FavoritesRepository(ruleServerStore)
+    val savedSearchRepository = SavedSearchRepository(ruleServerStore)
 }

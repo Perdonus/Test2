@@ -18,7 +18,8 @@ class PostsRepository(
                 pageSize = PAGE_SIZE,
                 initialLoadSize = PAGE_SIZE,
                 enablePlaceholders = false,
-                prefetchDistance = 8,
+                prefetchDistance = 4,
+                maxSize = PAGE_SIZE * 4,
             ),
             pagingSourceFactory = {
                 BooruPagingSource(
@@ -32,6 +33,6 @@ class PostsRepository(
     }
 
     private companion object {
-        const val PAGE_SIZE = 40
+        const val PAGE_SIZE = 24
     }
 }

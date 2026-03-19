@@ -35,7 +35,7 @@ fun FavoritesScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
-            CenterAlignedTopAppBar(title = { Text("Favorites") })
+            CenterAlignedTopAppBar(title = { Text("Избранное") })
         }
 
         if (favorites.isEmpty()) {

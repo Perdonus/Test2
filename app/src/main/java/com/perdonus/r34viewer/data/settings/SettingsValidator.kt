@@ -8,11 +8,11 @@ object SettingsValidator {
     ): String? {
         if (!enabled) return null
         if (host.isBlank()) {
-            return "Для proxy нужен host."
+            return "Для прокси нужен хост."
         }
         val port = portText.toIntOrNull()
         if (port == null || port !in 1..65535) {
-            return "Укажите корректный proxy port."
+            return "Укажите корректный порт прокси."
         }
         return null
     }

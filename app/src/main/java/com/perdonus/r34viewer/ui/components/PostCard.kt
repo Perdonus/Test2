@@ -61,8 +61,9 @@ fun PostCard(
                 modifier = Modifier.fillMaxSize(),
                 url = post.thumbnailUrl,
                 okHttpClient = okHttpClient,
-                contentDescription = "Post ${post.id}",
+                contentDescription = "Пост ${post.id}",
                 contentScale = ContentScale.Crop,
+                maxDecodeDimensionPx = 720,
             )
 
             Box(
@@ -97,7 +98,7 @@ fun PostCard(
                         tint = MaterialTheme.colorScheme.tertiary,
                     )
                     Text(
-                        text = "Video",
+                        text = "Видео",
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
@@ -112,7 +113,7 @@ fun PostCard(
             ) {
                 Icon(
                     imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
+                    contentDescription = if (isFavorite) "Убрать из избранного" else "Добавить в избранное",
                     tint = if (isFavorite) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -128,7 +129,7 @@ fun PostCard(
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(
-                    text = post.tagsSummary.ifBlank { "No tags" },
+                    text = post.tagsSummary.ifBlank { "Без тегов" },
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

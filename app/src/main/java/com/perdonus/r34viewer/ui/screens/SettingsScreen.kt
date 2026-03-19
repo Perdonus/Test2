@@ -42,7 +42,7 @@ fun SettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
     ) {
-        CenterAlignedTopAppBar(title = { Text("Proxy settings") })
+        CenterAlignedTopAppBar(title = { Text("Серверный прокси") })
 
         Column(
             modifier = Modifier
@@ -62,14 +62,14 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Use proxy", style = MaterialTheme.typography.titleMedium)
+                        Text("Использовать прокси", style = MaterialTheme.typography.titleMedium)
                         Switch(
                             checked = state.proxyEnabled,
                             onCheckedChange = onProxyEnabledChanged,
                         )
                     }
                     Text(
-                        "Поддерживаются HTTP и SOCKS. Эти настройки применяются и к booru-сервисам, и к AI-поиску.",
+                        "Поддерживаются HTTP и SOCKS. Эти настройки применяются к booru-сервисам внутри приложения.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -87,28 +87,28 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = state.proxyHost,
                         onValueChange = onProxyHostChanged,
-                        label = { Text("Host") },
+                        label = { Text("Хост") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     OutlinedTextField(
                         value = state.proxyPort,
                         onValueChange = onProxyPortChanged,
-                        label = { Text("Port") },
+                        label = { Text("Порт") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     OutlinedTextField(
                         value = state.proxyUsername,
                         onValueChange = onProxyUsernameChanged,
-                        label = { Text("Username") },
+                        label = { Text("Логин") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     OutlinedTextField(
                         value = state.proxyPassword,
                         onValueChange = onProxyPasswordChanged,
-                        label = { Text("Password") },
+                        label = { Text("Пароль") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
@@ -140,7 +140,7 @@ fun SettingsScreen(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Save proxy")
+                Text("Сохранить прокси")
             }
         }
     }

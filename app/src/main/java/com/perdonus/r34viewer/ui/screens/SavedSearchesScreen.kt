@@ -48,7 +48,7 @@ fun SavedSearchesScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            CenterAlignedTopAppBar(title = { Text("Bookmarks") })
+            CenterAlignedTopAppBar(title = { Text("Закладки") })
         }
 
         if (savedSearches.isEmpty()) {
@@ -84,7 +84,7 @@ fun SavedSearchesScreen(
                         }
                         Row {
                             IconButton(onClick = { onRunSearch(search) }) {
-                                Icon(Icons.Outlined.PlayArrow, contentDescription = "Run search")
+                                Icon(Icons.Outlined.PlayArrow, contentDescription = "Запустить поиск")
                             }
                             IconButton(
                                 onClick = {
@@ -92,10 +92,10 @@ fun SavedSearchesScreen(
                                     renameValue = search.label
                                 },
                             ) {
-                                Icon(Icons.Outlined.Edit, contentDescription = "Rename")
+                                Icon(Icons.Outlined.Edit, contentDescription = "Переименовать")
                             }
                             IconButton(onClick = { onDelete(search.id) }) {
-                                Icon(Icons.Outlined.Delete, contentDescription = "Delete")
+                                Icon(Icons.Outlined.Delete, contentDescription = "Удалить")
                             }
                         }
                     }
@@ -107,12 +107,12 @@ fun SavedSearchesScreen(
     renamingSearch?.let { current ->
         AlertDialog(
             onDismissRequest = { renamingSearch = null },
-            title = { Text("Rename bookmark") },
+            title = { Text("Переименовать закладку") },
             text = {
                 OutlinedTextField(
                     value = renameValue,
                     onValueChange = { renameValue = it },
-                    label = { Text("Label") },
+                    label = { Text("Название") },
                     singleLine = true,
                 )
             },
@@ -123,12 +123,12 @@ fun SavedSearchesScreen(
                         renamingSearch = null
                     },
                 ) {
-                    Text("Save")
+                    Text("Сохранить")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { renamingSearch = null }) {
-                    Text("Cancel")
+                    Text("Отмена")
                 }
             },
         )

@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -35,14 +36,21 @@ fun RemoteImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Fit,
+    maxDecodeDimensionPx: Int = 1600,
 ) {
+    val cacheKey = remember(url, maxDecodeDimensionPx) { "$url@$maxDecodeDimensionPx" }
     val state by produceState<ImageLoadState>(
-        initialValue = BitmapMemoryCache.get(url)?.let(ImageLoadState::Success) ?: ImageLoadState.Loading,
-        key1 = url,
+        initialValue = BitmapMemoryCache.get(cacheKey)?.let(ImageLoadState::Success) ?: ImageLoadState.Loading,
+        key1 = cacheKey,
         key2 = okHttpClient,
     ) {
         if (value is ImageLoadState.Success) return@produceState
-        value = fetchBitmap(url, okHttpClient)
+        value = fetchBitmap(
+            url = url,
+            okHttpClient = okHttpClient,
+            cacheKey = cacheKey,
+            maxDecodeDimensionPx = maxDecodeDimensionPx,
+        )
             ?.let(ImageLoadState::Success)
             ?: ImageLoadState.Error
     }
@@ -62,7 +70,7 @@ fun RemoteImage(
                 modifier = modifier,
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Image error")
+                Text("Не удалось загрузить изображение")
             }
         }
 
@@ -77,8 +85,13 @@ fun RemoteImage(
     }
 }
 
-private suspend fun fetchBitmap(url: String, okHttpClient: OkHttpClient): Bitmap? = withContext(Dispatchers.IO) {
-    BitmapMemoryCache.get(url)?.let { return@withContext it }
+private suspend fun fetchBitmap(
+    url: String,
+    okHttpClient: OkHttpClient,
+    cacheKey: String,
+    maxDecodeDimensionPx: Int,
+): Bitmap? = withContext(Dispatchers.IO) {
+    BitmapMemoryCache.get(cacheKey)?.let { return@withContext it }
 
     val request = Request.Builder()
         .url(url)
@@ -88,13 +101,35 @@ private suspend fun fetchBitmap(url: String, okHttpClient: OkHttpClient): Bitmap
     okHttpClient.newCall(request).execute().use { response ->
         if (!response.isSuccessful) return@withContext null
         val bytes = response.body?.bytes() ?: return@withContext null
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+
         val options = BitmapFactory.Options().apply {
             inPreferredConfig = Bitmap.Config.RGB_565
+            inDither = true
+            inSampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight, maxDecodeDimensionPx)
         }
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@withContext null
-        BitmapMemoryCache.put(url, bitmap)
+        BitmapMemoryCache.put(cacheKey, bitmap)
         return@withContext bitmap
     }
+}
+
+private fun calculateSampleSize(
+    width: Int,
+    height: Int,
+    maxDecodeDimensionPx: Int,
+): Int {
+    if (width <= 0 || height <= 0) return 1
+
+    val maxDimension = maxOf(width, height)
+    var sampleSize = 1
+    while (maxDimension / sampleSize > maxDecodeDimensionPx) {
+        sampleSize *= 2
+    }
+    return sampleSize
 }
 
 private object BitmapMemoryCache {
@@ -104,9 +139,9 @@ private object BitmapMemoryCache {
         }
     }
 
-    fun get(url: String): Bitmap? = cache.get(url)
+    fun get(key: String): Bitmap? = cache.get(key)
 
-    fun put(url: String, bitmap: Bitmap) {
-        cache.put(url, bitmap)
+    fun put(key: String, bitmap: Bitmap) {
+        cache.put(key, bitmap)
     }
 }
