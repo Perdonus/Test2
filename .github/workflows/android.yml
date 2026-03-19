@@ -55,6 +55,26 @@ jobs:
             exit 0
           fi
           echo "Unit tests failed. Download the 'r34-native-test-diagnostics' artifact for Gradle output and reports." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Gradle log tail" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f gradle-test.log ]; then
+            tail -n 120 gradle-test.log >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "gradle-test.log was not created." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          key_errors="$(grep -E '(^e: )|( error: )|Unresolved reference|Compilation error|Execution failed for task|FAILURE: Build failed with an exception\\.' gradle-test.log | tail -n 20 || true)"
+          if [ -n "$key_errors" ]; then
+            echo "### Key error lines" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' "$key_errors" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' "$key_errors" | head -n 5 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+          fi
           if find app/build/test-results -name '*.xml' -type f | grep -q .; then
             failures=$(grep -Rho 'failures=\"[0-9]\\+\"' app/build/test-results | sed 's/[^0-9]//g' | awk '{s+=$1} END {print s+0}')
             errors=$(grep -Rho 'errors=\"[0-9]\\+\"' app/build/test-results | sed 's/[^0-9]//g' | awk '{s+=$1} END {print s+0}')
