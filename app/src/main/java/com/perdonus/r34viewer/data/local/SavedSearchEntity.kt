@@ -1,7 +1,6 @@
 package com.perdonus.r34viewer.data.local
 
 import androidx.room.Entity
-import androidx.room.Ignore
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.perdonus.r34viewer.data.model.BooruService
@@ -17,7 +16,6 @@ data class SavedSearchEntity(
     val label: String,
     val createdAt: Long,
 ) {
-    @Ignore
     val service: BooruService
         get() = BooruService.fromId(serviceId)
 }
