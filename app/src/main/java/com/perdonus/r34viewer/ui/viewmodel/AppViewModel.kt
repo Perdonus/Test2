@@ -281,6 +281,7 @@ class SearchViewModel(
             } else {
                 fallbackMessage ?: "Не удалось уточнить запрос, ищу как есть."
             }
+            clearSuggestions()
             _searchRequest.value = SearchRequest(
                 query = rawQuery,
                 originQuery = rawQuery,
