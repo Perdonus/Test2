@@ -7,6 +7,7 @@
 - серверный прокси
 
 Также сервер делает AI-нормализацию поискового запроса через `sosiskibot.ru`, а затем валидирует booru-теги по API `rule34`, `konachan` и `xbooru`.
+Серверный state теперь также хранит `apiConfig` для `rule34`, `konachan` и AI-сервиса и отдаёт его приложению через `/api/state`.
 
 ## Локальный запуск
 
@@ -26,6 +27,10 @@ python3 server/rule_server.py
 - `RULE_AI_MODEL`
 - `RULE34_USER_ID`
 - `RULE34_API_KEY`
+- `KONACHAN_API_KEY`
+- `KONACHAN_USERNAME`
+- `KONACHAN_PASSWORD`
+- `KONACHAN_EMAIL`
 
 По умолчанию service слушает `127.0.0.1:5006`, а публичная точка находится на `https://sosiskibot.ru/rule`.
 
@@ -34,11 +39,13 @@ python3 server/rule_server.py
 - `GET /api/health`
 - `GET /api/state`
 - `GET /api/proxy`
+- `GET /api/api-config`
 - `POST /api/favorites/toggle`
 - `POST /api/saved-searches`
 - `POST /api/saved-searches/rename`
 - `POST /api/saved-searches/delete`
 - `POST /api/proxy`
+- `POST /api/api-config`
 - `POST /api/resolve-query`
 
 ## Deployment
