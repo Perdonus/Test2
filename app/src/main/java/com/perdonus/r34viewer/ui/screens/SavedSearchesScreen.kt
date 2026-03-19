@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.perdonus.r34viewer.data.local.SavedSearchEntity
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedSearchesScreen(
     savedSearches: List<SavedSearchEntity>,

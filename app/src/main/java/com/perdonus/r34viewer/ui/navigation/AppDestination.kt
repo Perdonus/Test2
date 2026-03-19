@@ -1,9 +1,9 @@
 package com.perdonus.r34viewer.ui.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.ManageSearch
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -12,9 +12,9 @@ sealed class AppDestination(
     val label: String,
     val icon: ImageVector,
 ) {
-    data object Search : AppDestination("search", "Search", Icons.Outlined.ManageSearch)
+    data object Search : AppDestination("search", "Search", Icons.Outlined.Search)
     data object Favorites : AppDestination("favorites", "Favorites", Icons.Outlined.FavoriteBorder)
-    data object SavedSearches : AppDestination("saved_searches", "Bookmarks", Icons.Outlined.Bookmarks)
+    data object SavedSearches : AppDestination("saved_searches", "Bookmarks", Icons.Outlined.BookmarkBorder)
     data object Settings : AppDestination("settings", "Settings", Icons.Outlined.Settings)
     data object Details : AppDestination("details", "Post", Icons.Outlined.FavoriteBorder)
 }

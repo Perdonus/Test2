@@ -16,14 +16,15 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bookmarks
-import androidx.compose.material.icons.outlined.ManageSearch
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedAssistChip
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +44,7 @@ import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.data.settings.AppSettings
 import com.perdonus.r34viewer.ui.components.PostCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     query: String,
@@ -89,11 +91,11 @@ fun SearchScreen(
                     singleLine = true,
                     label = { Text("Search tags") },
                     leadingIcon = {
-                        Icon(Icons.Outlined.ManageSearch, contentDescription = null)
+                        Icon(Icons.Outlined.Search, contentDescription = null)
                     },
                     trailingIcon = {
                         IconButton(onClick = onSearch) {
-                            Icon(Icons.Outlined.ManageSearch, contentDescription = "Run search")
+                            Icon(Icons.Outlined.Search, contentDescription = "Run search")
                         }
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -109,7 +111,7 @@ fun SearchScreen(
                         Text("Search")
                     }
                     Button(onClick = onSaveSearch, enabled = query.isNotBlank()) {
-                        Icon(Icons.Outlined.Bookmarks, contentDescription = null)
+                        Icon(Icons.Outlined.BookmarkBorder, contentDescription = null)
                         Text(" Save query")
                     }
                     FilterChip(
