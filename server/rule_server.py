@@ -80,7 +80,7 @@ TAG_CACHE_LOCK = threading.Lock()
 RESOLVE_CACHE_LOCK = threading.Lock()
 TAG_CACHE = {}
 RESOLVE_CACHE = {}
-SERVICE_IDS = {"rule34", "konachan", "xbooru"}
+SERVICE_IDS = {"rule34", "pornhub", "konachan", "xbooru", "tbib", "eporner", "redtube"}
 JSON_HEADERS = {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
@@ -98,24 +98,87 @@ KONACHAN_BROWSER_USER_AGENT = (
 DEFAULT_PREFERENCE_CATALOG = [
     {"tag": "dickgirl", "titleRu": "Девочка с хуем"},
     {"tag": "futanari", "titleRu": "Футанари"},
+    {"tag": "big_breasts", "titleRu": "Большие сиськи"},
+    {"tag": "large_breasts", "titleRu": "Большие сиськи"},
+    {"tag": "huge_breasts", "titleRu": "Огромные сиськи"},
+    {"tag": "gigantic_breasts", "titleRu": "Гигантские сиськи"},
+    {"tag": "massive_breasts", "titleRu": "Массивные сиськи"},
+    {"tag": "enormous_breasts", "titleRu": "Нереально огромные сиськи"},
+    {"tag": "small_breasts", "titleRu": "Маленькие сиськи"},
+    {"tag": "flat_chest", "titleRu": "Плоская грудь"},
+    {"tag": "big_ass", "titleRu": "Большая жопа"},
+    {"tag": "large_ass", "titleRu": "Большая жопа"},
+    {"tag": "huge_ass", "titleRu": "Огромная жопа"},
+    {"tag": "small_ass", "titleRu": "Маленькая жопа"},
+    {"tag": "ass_focus", "titleRu": "Фокус на жопе"},
+    {"tag": "breast_focus", "titleRu": "Фокус на сиськах"},
+    {"tag": "wide_hips", "titleRu": "Широкие бёдра"},
+    {"tag": "thick_thighs", "titleRu": "Толстые бёдра"},
+    {"tag": "thick_hips", "titleRu": "Массивные бёдра"},
+    {"tag": "curvy", "titleRu": "Фигуристая"},
+    {"tag": "voluptuous", "titleRu": "Очень пышная фигура"},
+    {"tag": "petite", "titleRu": "Миниатюрная"},
+    {"tag": "slim", "titleRu": "Худая"},
+    {"tag": "skinny", "titleRu": "Очень худая"},
+    {"tag": "chubby", "titleRu": "Полноватая"},
+    {"tag": "plump", "titleRu": "Пышка"},
+    {"tag": "bbw", "titleRu": "Очень полная"},
+    {"tag": "muscular_female", "titleRu": "Мускулистая девушка"},
+    {"tag": "female_muscle", "titleRu": "Выраженные женские мышцы"},
+    {"tag": "athletic_female", "titleRu": "Спортивная девушка"},
     {"tag": "anal", "titleRu": "Анальный секс"},
     {"tag": "oral", "titleRu": "Оральный секс"},
     {"tag": "paizuri", "titleRu": "Сиськотряс / паизури"},
     {"tag": "blowjob", "titleRu": "Минет"},
+    {"tag": "deepthroat", "titleRu": "Глубокий минет"},
+    {"tag": "handjob", "titleRu": "Дрочка рукой"},
+    {"tag": "footjob", "titleRu": "Дрочка ногами"},
+    {"tag": "rimjob", "titleRu": "Вылизывание жопы"},
+    {"tag": "facesitting", "titleRu": "Сидит лицом на лице"},
     {"tag": "cum", "titleRu": "Сперма"},
     {"tag": "cum_on_face", "titleRu": "Сперма на лице"},
     {"tag": "cum_in_mouth", "titleRu": "Сперма во рту"},
+    {"tag": "cum_in_pussy", "titleRu": "Кончают в пизду"},
+    {"tag": "cum_on_body", "titleRu": "Сперма по телу"},
+    {"tag": "creampie", "titleRu": "Кремпай"},
+    {"tag": "bukkake", "titleRu": "Буккаке"},
     {"tag": "masturbation", "titleRu": "Мастурбация"},
+    {"tag": "sex_from_behind", "titleRu": "Трахают сзади"},
+    {"tag": "doggystyle", "titleRu": "Доггистайл"},
+    {"tag": "missionary", "titleRu": "Миссионерская поза"},
+    {"tag": "cowgirl_position", "titleRu": "Наездница"},
+    {"tag": "reverse_cowgirl_position", "titleRu": "Обратная наездница"},
+    {"tag": "double_penetration", "titleRu": "Двойное проникновение"},
+    {"tag": "group_sex", "titleRu": "Групповой секс"},
+    {"tag": "gangbang", "titleRu": "Гэнгбэнг"},
     {"tag": "milf", "titleRu": "Зрелая женщина"},
+    {"tag": "nurse", "titleRu": "Медсестра"},
+    {"tag": "maid", "titleRu": "Горничная"},
+    {"tag": "school_uniform", "titleRu": "Школьная форма"},
+    {"tag": "cosplay", "titleRu": "Косплей"},
     {"tag": "monster_girl", "titleRu": "Девушка-монстр"},
+    {"tag": "elf", "titleRu": "Эльфийка"},
     {"tag": "tentacles", "titleRu": "Тентакли"},
     {"tag": "pregnant", "titleRu": "Беременность"},
     {"tag": "rape", "titleRu": "Изнасилование"},
     {"tag": "bondage", "titleRu": "Бондаж"},
+    {"tag": "femdom", "titleRu": "Женское доминирование"},
+    {"tag": "pegging", "titleRu": "Пеггинг"},
     {"tag": "yaoi", "titleRu": "Яой"},
     {"tag": "yuri", "titleRu": "Юри"},
     {"tag": "nude", "titleRu": "Нагота"},
     {"tag": "sex", "titleRu": "Секс"},
+    {"tag": "ahegao", "titleRu": "Похотливая рожа"},
+    {"tag": "pov", "titleRu": "От первого лица"},
+    {"tag": "stockings", "titleRu": "Чулки"},
+    {"tag": "pantyhose", "titleRu": "Колготки"},
+    {"tag": "dark_skin", "titleRu": "Тёмная кожа"},
+    {"tag": "tanlines", "titleRu": "Следы от загара"},
+    {"tag": "tattoo", "titleRu": "Татуировки"},
+    {"tag": "piercing", "titleRu": "Пирсинг"},
+    {"tag": "hairy_pussy", "titleRu": "Волосатая пизда"},
+    {"tag": "public_sex", "titleRu": "Секс на публике"},
+    {"tag": "shower_sex", "titleRu": "Секс в душе"},
 ]
 
 
@@ -179,8 +242,12 @@ def normalize_service_id(value: str | None) -> str:
         "rule": "rule34",
         "r34": "rule34",
         "rule34xxx": "rule34",
+        "pornhubcom": "pornhub",
         "konachancom": "konachan",
         "xboorucom": "xbooru",
+        "tbiborg": "tbib",
+        "epornercom": "eporner",
+        "redtubecom": "redtube",
     }.get(service_id, service_id)
     if service_id not in SERVICE_IDS:
         raise ValueError("Неизвестный сервис.")
@@ -204,22 +271,28 @@ def normalize_tags(value) -> list[str]:
 
 def normalize_post(raw: dict) -> dict:
     service_id = normalize_service_id(raw.get("serviceId") or raw.get("service"))
-    post_id = int(raw.get("id") or 0)
-    if post_id <= 0:
+    post_id = str(raw.get("id") or "").strip()
+    if not post_id:
         raise ValueError("Некорректный post id.")
+    file_url = str(raw.get("fileUrl") or "").strip()
+    if not file_url:
+        raise ValueError("Некорректный fileUrl.")
     return {
         "serviceId": service_id,
         "id": post_id,
         "serviceScopedId": f"{service_id}:{post_id}",
         "previewUrl": str(raw.get("previewUrl") or "").strip() or None,
         "sampleUrl": str(raw.get("sampleUrl") or "").strip() or None,
-        "fileUrl": str(raw.get("fileUrl") or "").strip(),
+        "fileUrl": file_url,
+        "pageUrl": str(raw.get("pageUrl") or "").strip() or None,
+        "embedUrl": str(raw.get("embedUrl") or "").strip() or None,
         "tags": normalize_tags(raw.get("tags")),
         "rating": str(raw.get("rating") or "").strip(),
         "score": int(raw.get("score") or 0),
         "width": int(raw.get("width") or 0),
         "height": int(raw.get("height") or 0),
         "mediaType": normalize_media_type(raw.get("mediaType")),
+        "hasDirectMedia": bool(raw.get("hasDirectMedia", True)),
         "savedAt": int(raw.get("savedAt") or now_ms()),
     }
 
@@ -448,6 +521,144 @@ def query_xbooru_tags(term: str) -> list[dict]:
     return result
 
 
+def query_tbib_tags(term: str) -> list[dict]:
+    params = urllib.parse.urlencode(
+        {
+            "page": "dapi",
+            "s": "tag",
+            "q": "index",
+            "limit": "100",
+            "name_pattern": f"%{term}%",
+        },
+    )
+    root = ET.fromstring(
+        read_url(
+            f"https://tbib.org/index.php?{params}",
+            headers={"User-Agent": KONACHAN_BROWSER_USER_AGENT},
+            use_proxy=False,
+        ).decode("utf-8"),
+    )
+    result = []
+    for item in root.findall("tag"):
+        result.append(
+            {
+                "name": item.attrib.get("name", "").strip(),
+                "count": int(item.attrib.get("count") or 0),
+            },
+        )
+    return result
+
+
+def query_pornhub_terms(term: str) -> list[dict]:
+    normalized = str(term or "").strip().lower()
+    if not normalized:
+        return []
+    starts_with = normalized[0] if normalized[0].isalnum() else "0"
+    result = []
+    seen = set()
+
+    tags_data = read_json_url(
+        f"https://www.pornhub.com/webmasters/tags?list={urllib.parse.quote(starts_with)}",
+        use_proxy=False,
+    )
+    for item in tags_data.get("tags") or []:
+        raw_name = str(item or "").strip()
+        if normalized not in raw_name.lower():
+            continue
+        if len(raw_name.split()) > 4:
+            continue
+        candidate = normalize_candidate_tag(raw_name)
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        result.append({"name": raw_name, "count": 0})
+
+    categories_data = read_json_url("https://www.pornhub.com/webmasters/categories", use_proxy=False)
+    for item in categories_data.get("categories") or []:
+        raw_name = str((item or {}).get("category") or "").replace("-1", "").strip()
+        if not raw_name or normalized not in raw_name.lower():
+            continue
+        candidate = normalize_candidate_tag(raw_name)
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        result.append({"name": raw_name, "count": 0})
+    return result
+
+
+def query_redtube_terms(term: str) -> list[dict]:
+    normalized = str(term or "").strip().lower()
+    if not normalized:
+        return []
+    result = []
+    seen = set()
+
+    try:
+        tags_data = read_json_url(
+            "https://api.redtube.com/?data=redtube.Tags.getTagList&output=json",
+            use_proxy=False,
+        )
+    except Exception:
+        tags_data = {}
+    for item in tags_data.get("tags") or []:
+        raw_name = str(((item or {}).get("tag") or {}).get("tag_name") or "").strip()
+        if not raw_name or normalized not in raw_name.lower():
+            continue
+        if len(raw_name.split()) > 4:
+            continue
+        candidate = normalize_candidate_tag(raw_name)
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        result.append({"name": raw_name, "count": 0})
+
+    categories_data = read_json_url(
+        "https://api.redtube.com/?data=redtube.Categories.getCategoriesList&output=json",
+        use_proxy=False,
+    )
+    for item in categories_data.get("categories") or []:
+        raw_name = str((item or {}).get("category") or "").strip()
+        if not raw_name or normalized not in raw_name.lower():
+            continue
+        candidate = normalize_candidate_tag(raw_name)
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        result.append({"name": raw_name, "count": 0})
+    return result
+
+
+def query_eporner_terms(term: str) -> list[dict]:
+    normalized = str(term or "").strip().lower()
+    if not normalized:
+        return []
+
+    data = read_json_url(
+        (
+            "https://www.eporner.com/api/v2/video/search/"
+            f"?query={urllib.parse.quote(normalized)}&per_page=24&page=1&format=json"
+        ),
+        use_proxy=False,
+    )
+
+    ranked = {}
+    for item in data.get("videos") or []:
+        keywords = str(item.get("keywords") or "")
+        for raw_name in keywords.split(","):
+            candidate_name = raw_name.strip()
+            if not candidate_name or normalized not in candidate_name.lower():
+                continue
+            candidate = normalize_candidate_tag(candidate_name)
+            if not candidate:
+                continue
+            ranked[candidate_name] = ranked.get(candidate_name, 0) + 1
+
+    return [
+        {"name": name, "count": count}
+        for name, count in sorted(ranked.items(), key=lambda item: (-item[1], item[0].lower()))
+    ]
+
+
 def query_konachan_tags(term: str, api_config: dict, proxy_config: dict | None = None) -> list[dict]:
     params = {
         "name": f"*{term}*",
@@ -465,6 +676,7 @@ def query_konachan_tags(term: str, api_config: dict, proxy_config: dict | None =
         data = read_json_url(
             url,
             headers=headers,
+            use_proxy=False,
         )
     except Exception:
         if proxy_url_from_config(proxy_config) is None:
@@ -498,8 +710,18 @@ def fetch_service_tags(service_id: str, term: str, api_config: dict, proxy_confi
             result = query_rule34_tags(normalized_term, api_config)
         elif service_id == "konachan":
             result = query_konachan_tags(normalized_term, api_config, proxy_config)
-        else:
+        elif service_id == "xbooru":
             result = query_xbooru_tags(normalized_term)
+        elif service_id == "tbib":
+            result = query_tbib_tags(normalized_term)
+        elif service_id == "pornhub":
+            result = query_pornhub_terms(normalized_term)
+        elif service_id == "redtube":
+            result = query_redtube_terms(normalized_term)
+        elif service_id == "eporner":
+            result = query_eporner_terms(normalized_term)
+        else:
+            result = []
     except Exception as exc:
         print(
             f"Tag fetch failed for service={service_id} term={normalized_term}: {exc}",
@@ -535,6 +757,22 @@ def search_preference_catalog(
 
     items = []
     seen = set()
+    prefer_local_first = service_id in {"pornhub", "redtube", "eporner", "tbib"}
+
+    def append_local_matches():
+        for item in default_preference_catalog():
+            if query.lower() not in item["tag"] and query.lower() not in item["titleRu"].lower():
+                continue
+            if item["tag"] in seen:
+                continue
+            seen.add(item["tag"])
+            items.append(item)
+            if len(items) >= 30:
+                break
+
+    if prefer_local_first:
+        append_local_matches()
+
     for item in fetch_service_tags(service_id, query, api_config, proxy_config):
         tag = normalize_candidate_tag(item.get("name", ""))
         if not tag or tag in seen:
@@ -547,6 +785,12 @@ def search_preference_catalog(
                 "postCount": int(item.get("count") or 0),
             },
         )
+        if len(items) >= 30:
+            break
+
+    if len(items) < 30:
+        append_local_matches()
+
     return items[:30]
 
 
@@ -707,9 +951,12 @@ def resolve_query(
     if cached is not None:
         return cached
 
+    text_search_service = service_id in {"pornhub", "eporner", "redtube"}
+
     simple_candidate = normalize_candidate_tag(normalized_query.replace(" ", "_"))
     if (
         mode == "auto"
+        and not text_search_service
         and simple_candidate
         and resolve_exact_tag_count(service_id, simple_candidate, api_config, proxy_config) > 0
     ):
@@ -742,6 +989,24 @@ def resolve_query(
         if normalize_candidate_tag(str(item))
     ]
     explanation = str(ai_data.get("explanation_ru") or "").strip() or None
+
+    if text_search_service:
+        resolved_query = (
+            canonical_name
+            or next((item.replace("_", " ") for item in ai_candidates if item), "")
+            or normalized_query
+        ).strip()
+        resolved = {
+            "resolvedQuery": resolved_query or normalized_query,
+            "canonicalName": canonical_name,
+            "tags": dedupe_preserve([item.replace("_", " ") for item in ai_candidates][:3]),
+            "explanation": explanation,
+            "source": "text-search",
+            "serviceId": service_id,
+        }
+        with RESOLVE_CACHE_LOCK:
+            RESOLVE_CACHE[cache_key] = resolved
+        return resolved
 
     exact_candidates = dedupe_preserve(name_candidates_from_canonical(canonical_name or "") + ai_candidates)
     best_tag = None

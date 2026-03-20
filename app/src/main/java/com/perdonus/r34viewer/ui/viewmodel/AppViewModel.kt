@@ -10,6 +10,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.perdonus.r34viewer.R34Application
 import com.perdonus.r34viewer.data.cache.ImageMemoryCache
+import com.perdonus.r34viewer.data.cache.VideoPlaybackCache
 import com.perdonus.r34viewer.data.local.SavedSearchEntity
 import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.Rule34Post
@@ -133,12 +134,7 @@ class SearchViewModel(
             return
         }
 
-        viewModelScope.launch {
-            executeResolvedSearch(
-                rawQuery = rawQuery,
-                mode = ResolveMode.AUTO,
-            )
-        }
+        runSearch(rawQuery)
     }
 
     fun runSearch(
@@ -209,29 +205,15 @@ class SearchViewModel(
             settingsRepository.updateSelectedService(service)
             requestSuggestions(_queryText.value, service)
             val currentRequest = _searchRequest.value
-            val activeQuery = currentRequest.originQuery.ifBlank { currentRequest.query }.trim()
+            val activeQuery = _queryText.value.trim()
             if (currentRequest.nonce > 0L) {
-                val requiresServiceResolution =
-                    activeQuery.isNotBlank() &&
-                        currentRequest.originQuery.isNotBlank() &&
-                        currentRequest.originQuery.trim() != currentRequest.query.trim()
-
-                if (!requiresServiceResolution) {
-                    _queryText.value = activeQuery
-                    _feedbackMessage.value = null
-                    _searchRequest.value = SearchRequest(
-                        query = activeQuery,
-                        originQuery = activeQuery,
-                        nonce = _searchRequest.value.nonce + 1,
-                    )
-                    return@launch
-                }
-
-                executeResolvedSearch(
-                    rawQuery = activeQuery,
-                    mode = ResolveMode.AUTO,
-                    serviceOverride = service,
-                    fallbackMessage = "Не удалось адаптировать запрос под ${service.displayName}, ищу как есть.",
+                _queryText.value = activeQuery
+                _feedbackMessage.value = null
+                clearSuggestions()
+                _searchRequest.value = SearchRequest(
+                    query = activeQuery,
+                    originQuery = activeQuery,
+                    nonce = _searchRequest.value.nonce + 1,
                 )
             }
         }
@@ -293,7 +275,9 @@ class SearchViewModel(
     }
 
     fun useSuggestion(tag: String) {
-        runSearch(tag, settings.value.selectedService)
+        val service = settings.value.selectedService
+        val query = if (service.usesTagSearch) tag else tag.replace('_', ' ')
+        runSearch(query, service)
     }
 
     private fun requestSuggestions(
@@ -582,7 +566,7 @@ class SettingsViewModel(
                     proxyPort = settings.proxyConfig.port?.toString().orEmpty(),
                     proxyUsername = settings.proxyConfig.username,
                     proxyPassword = settings.proxyConfig.password,
-                    cacheSizeBytes = ImageMemoryCache.sizeBytes() + MediaDiskCache.sizeBytes(),
+                    cacheSizeBytes = ImageMemoryCache.sizeBytes() + MediaDiskCache.sizeBytes() + VideoPlaybackCache.sizeBytes(),
                     cacheLimitBytes = -1L,
                 )
             }
@@ -607,7 +591,7 @@ class SettingsViewModel(
 
     fun refreshCacheStats() {
         _state.value = _state.value.copy(
-            cacheSizeBytes = ImageMemoryCache.sizeBytes() + MediaDiskCache.sizeBytes(),
+            cacheSizeBytes = ImageMemoryCache.sizeBytes() + MediaDiskCache.sizeBytes() + VideoPlaybackCache.sizeBytes(),
             cacheLimitBytes = -1L,
         )
     }
@@ -693,6 +677,7 @@ class SettingsViewModel(
     fun clearMediaCache() {
         ImageMemoryCache.clear()
         MediaDiskCache.clear()
+        VideoPlaybackCache.clear()
         _state.value = _state.value.copy(
             cacheSizeBytes = 0L,
             cacheLimitBytes = -1L,

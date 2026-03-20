@@ -4,6 +4,11 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.graphics.Color as AndroidColor
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -63,15 +68,46 @@ fun FullscreenVideoOverlay(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
-                PlayerView(context).apply {
-                    this.player = player
-                    useController = true
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                }
+                PlayerView(context).applyPlayerChrome()
             },
             update = { playerView ->
                 playerView.player = player
+                playerView.applyPlayerChrome()
             },
+        )
+    }
+}
+
+@Composable
+fun EmbeddedWebVideoPlayer(
+    url: String,
+    modifier: Modifier = Modifier,
+) {
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            WebView(context).applyVideoWebView(url)
+        },
+        update = { webView ->
+            if (webView.url != url) {
+                webView.loadUrl(url)
+            }
+        },
+    )
+}
+
+@Composable
+fun FullscreenWebVideoOverlay(
+    url: String,
+    onDismiss: () -> Unit,
+) {
+    FullscreenMediaDialog(
+        onDismiss = onDismiss,
+        rotateWithSensor = true,
+    ) {
+        EmbeddedWebVideoPlayer(
+            url = url,
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }
@@ -207,6 +243,25 @@ private fun FullscreenWindowEffect(rotateWithSensor: Boolean) {
             }
         }
     }
+}
+
+private fun PlayerView.applyPlayerChrome(): PlayerView = apply {
+    useController = true
+    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+    setShowPreviousButton(false)
+    setShowNextButton(false)
+}
+
+private fun WebView.applyVideoWebView(url: String): WebView = apply {
+    setBackgroundColor(AndroidColor.BLACK)
+    settings.javaScriptEnabled = true
+    settings.domStorageEnabled = true
+    settings.mediaPlaybackRequiresUserGesture = false
+    settings.loadsImagesAutomatically = true
+    settings.cacheMode = WebSettings.LOAD_DEFAULT
+    webViewClient = object : WebViewClient() {}
+    webChromeClient = WebChromeClient()
+    loadUrl(url)
 }
 
 private fun clampImageOffset(

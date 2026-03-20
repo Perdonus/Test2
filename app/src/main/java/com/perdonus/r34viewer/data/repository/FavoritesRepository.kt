@@ -21,7 +21,7 @@ class FavoritesRepository(
         ruleServerStore.toggleFavorite(post)
     }
 
-    suspend fun remove(service: BooruService, postId: Int) {
+    suspend fun remove(service: BooruService, postId: String) {
         val existing = ruleServerStore.state.value.favorites.firstOrNull {
             it.service == service && it.id == postId
         } ?: return

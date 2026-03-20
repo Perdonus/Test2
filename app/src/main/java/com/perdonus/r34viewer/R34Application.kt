@@ -2,6 +2,7 @@ package com.perdonus.r34viewer
 
 import android.app.Application
 import com.perdonus.r34viewer.data.cache.MediaDiskCache
+import com.perdonus.r34viewer.data.cache.VideoPlaybackCache
 import com.perdonus.r34viewer.data.remote.AiTagResolver
 import com.perdonus.r34viewer.data.remote.BooruApiSource
 import com.perdonus.r34viewer.data.remote.NetworkClientFactory
@@ -20,6 +21,7 @@ class R34Application : Application() {
 class AppContainer(application: Application) {
     init {
         MediaDiskCache.initialize(application)
+        VideoPlaybackCache.initialize(application)
     }
 
     private val ruleServerStore = RuleServerStore()

@@ -138,6 +138,21 @@ fun ApiSettingsScreen(
                 }
             }
 
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Сервисы без ключей", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "xBooru, TBIB, Eporner, Pornhub и RedTube сейчас работают без отдельного API key. Их настройки берутся автоматически.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
             state.errorMessage?.let { message ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Text(

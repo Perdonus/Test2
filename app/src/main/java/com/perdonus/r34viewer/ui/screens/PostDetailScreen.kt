@@ -30,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,21 +38,23 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.perdonus.r34viewer.data.cache.MediaDiskCache
+import com.perdonus.r34viewer.data.cache.VideoPlaybackCache
 import com.perdonus.r34viewer.data.download.MediaDownloadManager
 import com.perdonus.r34viewer.data.model.Rule34Post
+import com.perdonus.r34viewer.ui.components.EmbeddedWebVideoPlayer
 import com.perdonus.r34viewer.ui.components.FullscreenVideoOverlay
+import com.perdonus.r34viewer.ui.components.FullscreenWebVideoOverlay
 import com.perdonus.r34viewer.ui.components.RemoteImage
 import com.perdonus.r34viewer.ui.components.ScreenHeader
 import com.perdonus.r34viewer.ui.components.ZoomableImageOverlay
@@ -94,22 +95,31 @@ fun PostDetailScreen(
 
     var showImageFullscreen by rememberSaveable(post.serviceScopedId) { mutableStateOf(false) }
     var showVideoFullscreen by rememberSaveable(post.serviceScopedId) { mutableStateOf(false) }
-    var playbackPosition by rememberSaveable(post.fileUrl) { mutableLongStateOf(0L) }
-    var playWhenReady by rememberSaveable(post.fileUrl) { mutableStateOf(false) }
+    var playbackPosition by rememberSaveable(post.playbackUrl) { mutableLongStateOf(0L) }
+    var playWhenReady by rememberSaveable(post.playbackUrl) { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val hasDirectVideoPlayback = post.isVideo && post.hasDirectMedia && post.service.supportsDirectMediaPlayback
     val startDownload = remember(post, context) {
         {
-            val downloadId = MediaDownloadManager.enqueue(context, post)
-            Toast.makeText(
-                context,
-                if (downloadId != null) {
-                    "Скачивание началось: Downloads/rule"
-                } else {
-                    "Не удалось начать скачивание"
-                },
-                Toast.LENGTH_SHORT,
-            ).show()
+            if (!post.canDownloadDirectly) {
+                Toast.makeText(
+                    context,
+                    "У этого сервиса нет прямой ссылки на файл для скачивания.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } else {
+                val downloadId = MediaDownloadManager.enqueue(context, post)
+                Toast.makeText(
+                    context,
+                    if (downloadId != null) {
+                        "Скачивание началось: Downloads/rule"
+                    } else {
+                        "Не удалось начать скачивание"
+                    },
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
     val downloadPermissionLauncher = rememberLauncherForActivityResult(
@@ -126,29 +136,20 @@ fun PostDetailScreen(
         }
     }
 
-    val initialVideoUri = remember(post.fileUrl) {
-        MediaDiskCache.cachedFile(post.fileUrl)?.toUri()?.toString() ?: post.fileUrl
-    }
-    val player = remember(post.fileUrl, okHttpClient) {
-        if (!post.isVideo) return@remember null
+    val player = remember(post.playbackUrl, okHttpClient, hasDirectVideoPlayback) {
+        if (!hasDirectVideoPlayback) return@remember null
         val mediaSourceFactory = DefaultMediaSourceFactory(
-            OkHttpDataSource.Factory(okHttpClient),
+            VideoPlaybackCache.dataSourceFactory(okHttpClient),
         )
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
             .apply {
-                setMediaItem(MediaItem.fromUri(initialVideoUri))
+                setMediaItem(MediaItem.fromUri(post.playbackUrl))
                 prepare()
                 seekTo(playbackPosition)
                 this.playWhenReady = playWhenReady
             }
-    }
-
-    LaunchedEffect(post.fileUrl, post.isVideo, okHttpClient) {
-        if (post.isVideo) {
-            MediaDiskCache.prefetch(post.fileUrl, okHttpClient)
-        }
     }
 
     DisposableEffect(player) {
@@ -169,22 +170,24 @@ fun PostDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            if (
-                                MediaDownloadManager.requiresLegacyWritePermission() &&
-                                !MediaDownloadManager.hasLegacyWritePermission(context)
-                            ) {
-                                downloadPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                            } else {
-                                startDownload()
-                            }
-                        },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Download,
-                            contentDescription = "Скачать в Downloads/rule",
-                        )
+                    if (post.canDownloadDirectly) {
+                        IconButton(
+                            onClick = {
+                                if (
+                                    MediaDownloadManager.requiresLegacyWritePermission() &&
+                                    !MediaDownloadManager.hasLegacyWritePermission(context)
+                                ) {
+                                    downloadPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                } else {
+                                    startDownload()
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Download,
+                                contentDescription = "Скачать в Downloads/rule",
+                            )
+                        }
                     }
                     IconButton(onClick = { onToggleFavorite(post) }) {
                         Icon(
@@ -200,27 +203,35 @@ fun PostDetailScreen(
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                if (post.isVideo && player != null) {
+                if (post.isVideo && hasDirectVideoPlayback && player != null) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .height(260.dp),
                     ) {
-                        if (!showVideoFullscreen) {
-                            AndroidView(
-                                modifier = Modifier.fillMaxSize(),
-                                factory = {
-                                    PlayerView(it).apply {
-                                        this.player = player
-                                        useController = true
-                                    }
-                                },
-                                update = { playerView ->
-                                    playerView.player = player
-                                },
-                            )
+                        AndroidView(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(if (showVideoFullscreen) 0f else 1f),
+                            factory = {
+                                PlayerView(it).apply {
+                                    useController = true
+                                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                    setShowPreviousButton(false)
+                                    setShowNextButton(false)
+                                }
+                            },
+                            update = { playerView ->
+                                playerView.useController = true
+                                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                playerView.setShowPreviousButton(false)
+                                playerView.setShowNextButton(false)
+                                playerView.player = if (showVideoFullscreen) null else player
+                            },
+                        )
 
+                        if (!showVideoFullscreen) {
                             IconButton(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
@@ -232,6 +243,30 @@ fun PostDetailScreen(
                                     contentDescription = "Открыть видео во весь экран",
                                 )
                             }
+                        }
+                    }
+                } else if (post.isVideo) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .height(260.dp),
+                    ) {
+                        EmbeddedWebVideoPlayer(
+                            url = post.playbackUrl,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+
+                        IconButton(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp),
+                            onClick = { showVideoFullscreen = true },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Fullscreen,
+                                contentDescription = "Открыть видео во весь экран",
+                            )
                         }
                     }
                 } else {
@@ -314,6 +349,11 @@ fun PostDetailScreen(
         if (showVideoFullscreen && player != null) {
             FullscreenVideoOverlay(
                 player = player,
+                onDismiss = { showVideoFullscreen = false },
+            )
+        } else if (showVideoFullscreen && post.isVideo) {
+            FullscreenWebVideoOverlay(
+                url = post.playbackUrl,
                 onDismiss = { showVideoFullscreen = false },
             )
         }

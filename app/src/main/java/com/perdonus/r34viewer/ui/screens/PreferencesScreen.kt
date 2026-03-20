@@ -77,7 +77,11 @@ fun PreferencesScreen(
                     ) {
                         Text("Что подмешивать в поиск", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Предпочтения применяются ко всем поискам на ${state.selectedService.displayName}. Используются стабильные booru-операторы: обычный тег и исключение через -tag.",
+                            if (state.selectedService.usesTagSearch) {
+                                "Предпочтения применяются ко всем поискам на ${state.selectedService.displayName}. Для booru-сервисов они подмешиваются как обычные теги и исключения вида -tag."
+                            } else {
+                                "Предпочтения применяются ко всем поискам на ${state.selectedService.displayName}. Для видео-сервисов любимые темы добавляются в текст запроса, а скрытые темы дополнительно отфильтровываются по найденным тегам."
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -112,14 +116,27 @@ fun PreferencesScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text("Найти тег по API", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (state.selectedService.usesTagSearch) "Найти тег по API" else "Найти тему по API",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                         OutlinedTextField(
                             value = state.catalogQuery,
                             onValueChange = onQueryChanged,
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            label = { Text("Введите тег или часть тега") },
-                            supportingText = { Text("Пустое поле заново загрузит стартовый каталог с сервера.") },
+                            label = {
+                                Text(
+                                    if (state.selectedService.usesTagSearch) {
+                                        "Введите тег или часть тега"
+                                    } else {
+                                        "Введите тему, категорию или ключевое слово"
+                                    },
+                                )
+                            },
+                            supportingText = {
+                                Text("Пустое поле заново загрузит стартовый каталог с сервера.")
+                            },
                             trailingIcon = {
                                 IconButton(onClick = onSearch, enabled = !state.isSearching) {
                                     Icon(Icons.Outlined.Search, contentDescription = "Искать тег")

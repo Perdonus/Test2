@@ -22,6 +22,7 @@ object MediaDownloadManager {
         context: Context,
         post: Rule34Post,
     ): Long? {
+        if (!post.canDownloadDirectly) return null
         val service = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager ?: return null
         return runCatching {
             val fileName = buildFileName(post)

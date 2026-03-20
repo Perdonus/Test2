@@ -14,11 +14,11 @@ interface FavoritePostDao {
     fun observeAll(serviceId: String): Flow<List<FavoritePostEntity>>
 
     @Query("SELECT * FROM favorite_posts WHERE serviceId = :serviceId AND id = :id LIMIT 1")
-    suspend fun getById(serviceId: String, id: Int): FavoritePostEntity?
+    suspend fun getById(serviceId: String, id: String): FavoritePostEntity?
 
     @Upsert
     suspend fun upsert(post: FavoritePostEntity)
 
     @Query("DELETE FROM favorite_posts WHERE serviceId = :serviceId AND id = :id")
-    suspend fun deleteById(serviceId: String, id: Int)
+    suspend fun deleteById(serviceId: String, id: String)
 }

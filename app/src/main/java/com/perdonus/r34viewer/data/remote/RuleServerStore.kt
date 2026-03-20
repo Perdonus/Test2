@@ -112,12 +112,15 @@ class RuleServerStore {
                 put("previewUrl", post.previewUrl?.let(::JsonPrimitive) ?: JsonNull)
                 put("sampleUrl", post.sampleUrl?.let(::JsonPrimitive) ?: JsonNull)
                 put("fileUrl", JsonPrimitive(post.fileUrl))
+                put("pageUrl", post.pageUrl?.let(::JsonPrimitive) ?: JsonNull)
+                put("embedUrl", post.embedUrl?.let(::JsonPrimitive) ?: JsonNull)
                 put("tags", JsonArray(post.tags.map(::JsonPrimitive)))
                 put("rating", JsonPrimitive(post.rating))
                 put("score", JsonPrimitive(post.score))
                 put("width", JsonPrimitive(post.width))
                 put("height", JsonPrimitive(post.height))
                 put("mediaType", JsonPrimitive(post.mediaType.name))
+                put("hasDirectMedia", JsonPrimitive(post.hasDirectMedia))
             },
         )
         val favorites = root["favorites"].jsonArrayOrEmpty().mapNotNull { it.asPostOrNull() }
@@ -413,13 +416,16 @@ class RuleServerStore {
     private fun JsonElement?.asPostOrNull(): Rule34Post? {
         val root = this as? JsonObject ?: return null
         val fileUrl = root["fileUrl"].asStringOrNull().orEmpty()
-        if (fileUrl.isBlank()) return null
+        val id = root["id"].asStringOrNull().orEmpty()
+        if (fileUrl.isBlank() || id.isBlank()) return null
         return Rule34Post(
             service = BooruService.fromId(root["serviceId"].asStringOrNull()),
-            id = (root["id"] as? JsonPrimitive)?.content?.toIntOrNull() ?: return null,
+            id = id,
             previewUrl = root["previewUrl"].asStringOrNull(),
             sampleUrl = root["sampleUrl"].asStringOrNull(),
             fileUrl = fileUrl,
+            pageUrl = root["pageUrl"].asStringOrNull(),
+            embedUrl = root["embedUrl"].asStringOrNull(),
             tags = root["tags"].jsonArrayOrEmpty().mapNotNull { it.asStringOrNull() },
             rating = root["rating"].asStringOrNull().orEmpty(),
             score = (root["score"] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0,
@@ -428,6 +434,7 @@ class RuleServerStore {
             mediaType = runCatching {
                 PostMediaType.valueOf(root["mediaType"].asStringOrNull().orEmpty())
             }.getOrDefault(PostMediaType.fromUrl(fileUrl)),
+            hasDirectMedia = root["hasDirectMedia"].asStringOrNull() != "false",
         )
     }
 

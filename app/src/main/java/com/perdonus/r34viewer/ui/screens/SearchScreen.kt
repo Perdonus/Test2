@@ -125,9 +125,6 @@ fun SearchScreen(
                         onValueChange = onQueryChanged,
                         singleLine = true,
                         label = { Text("Поиск по имени или тегам") },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Search, contentDescription = null)
-                        },
                         trailingIcon = {
                             IconButton(onClick = onSearch, enabled = !isResolvingQuery) {
                                 Icon(Icons.Outlined.Search, contentDescription = "Запустить поиск")
