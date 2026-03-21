@@ -129,7 +129,7 @@ fun PostCard(
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(
-                    text = post.tagsSummary.ifBlank { "Без тегов" },
+                    text = post.title.ifBlank { post.tagsSummary.ifBlank { "Без тегов" } },
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

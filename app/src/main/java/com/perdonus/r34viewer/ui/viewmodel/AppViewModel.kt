@@ -276,8 +276,8 @@ class SearchViewModel(
 
     fun useSuggestion(tag: String) {
         val service = settings.value.selectedService
-        val query = if (service.usesTagSearch) tag else tag.replace('_', ' ')
-        runSearch(query, service)
+        _queryText.value = if (service.usesTagSearch) tag else tag.replace('_', ' ')
+        clearSuggestions()
     }
 
     private fun requestSuggestions(

@@ -4,6 +4,11 @@ import com.perdonus.r34viewer.data.settings.ContentPreferences
 
 object SearchQueryBuilder {
     private val whitespaceRegex = "\\s+".toRegex()
+    private val preferenceTagServices = setOf(
+        BooruService.RULE34,
+        BooruService.KONACHAN,
+        BooruService.XBOORU,
+    )
 
     fun build(
         service: BooruService,
@@ -11,16 +16,21 @@ object SearchQueryBuilder {
         hideAiContent: Boolean,
         preferences: ContentPreferences,
     ): String {
+        val effectivePreferences = if (service in preferenceTagServices) {
+            preferences
+        } else {
+            ContentPreferences()
+        }
         return if (service.usesTagSearch) {
             buildTagQuery(
                 query = query,
                 hideAiContent = hideAiContent,
-                preferences = preferences,
+                preferences = effectivePreferences,
             )
         } else {
             buildTextQuery(
                 query = query,
-                preferences = preferences,
+                preferences = effectivePreferences,
             )
         }
     }

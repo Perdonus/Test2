@@ -152,6 +152,19 @@ DEFAULT_PREFERENCE_CATALOG = [
     {"tag": "group_sex", "titleRu": "Групповой секс"},
     {"tag": "gangbang", "titleRu": "Гэнгбэнг"},
     {"tag": "milf", "titleRu": "Зрелая женщина"},
+    {"tag": "teen", "titleRu": "Молодая / teen"},
+    {"tag": "mature", "titleRu": "Зрелая"},
+    {"tag": "amateur", "titleRu": "Любительское"},
+    {"tag": "lesbian", "titleRu": "Лесбиянки"},
+    {"tag": "threesome", "titleRu": "Тройничок"},
+    {"tag": "interracial", "titleRu": "Межрасовое"},
+    {"tag": "asian", "titleRu": "Азиатки"},
+    {"tag": "japanese", "titleRu": "Японки"},
+    {"tag": "latina", "titleRu": "Латинки"},
+    {"tag": "ebony", "titleRu": "Темнокожие"},
+    {"tag": "massage", "titleRu": "Массаж"},
+    {"tag": "squirting", "titleRu": "Сквирт"},
+    {"tag": "hentai", "titleRu": "Хентай"},
     {"tag": "nurse", "titleRu": "Медсестра"},
     {"tag": "maid", "titleRu": "Горничная"},
     {"tag": "school_uniform", "titleRu": "Школьная форма"},
@@ -281,6 +294,7 @@ def normalize_post(raw: dict) -> dict:
         "serviceId": service_id,
         "id": post_id,
         "serviceScopedId": f"{service_id}:{post_id}",
+        "title": str(raw.get("title") or "").strip(),
         "previewUrl": str(raw.get("previewUrl") or "").strip() or None,
         "sampleUrl": str(raw.get("sampleUrl") or "").strip() or None,
         "fileUrl": file_url,
@@ -553,25 +567,8 @@ def query_pornhub_terms(term: str) -> list[dict]:
     normalized = str(term or "").strip().lower()
     if not normalized:
         return []
-    starts_with = normalized[0] if normalized[0].isalnum() else "0"
     result = []
     seen = set()
-
-    tags_data = read_json_url(
-        f"https://www.pornhub.com/webmasters/tags?list={urllib.parse.quote(starts_with)}",
-        use_proxy=False,
-    )
-    for item in tags_data.get("tags") or []:
-        raw_name = str(item or "").strip()
-        if normalized not in raw_name.lower():
-            continue
-        if len(raw_name.split()) > 4:
-            continue
-        candidate = normalize_candidate_tag(raw_name)
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        result.append({"name": raw_name, "count": 0})
 
     categories_data = read_json_url("https://www.pornhub.com/webmasters/categories", use_proxy=False)
     for item in categories_data.get("categories") or []:
@@ -592,25 +589,6 @@ def query_redtube_terms(term: str) -> list[dict]:
         return []
     result = []
     seen = set()
-
-    try:
-        tags_data = read_json_url(
-            "https://api.redtube.com/?data=redtube.Tags.getTagList&output=json",
-            use_proxy=False,
-        )
-    except Exception:
-        tags_data = {}
-    for item in tags_data.get("tags") or []:
-        raw_name = str(((item or {}).get("tag") or {}).get("tag_name") or "").strip()
-        if not raw_name or normalized not in raw_name.lower():
-            continue
-        if len(raw_name.split()) > 4:
-            continue
-        candidate = normalize_candidate_tag(raw_name)
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        result.append({"name": raw_name, "count": 0})
 
     categories_data = read_json_url(
         "https://api.redtube.com/?data=redtube.Categories.getCategoriesList&output=json",

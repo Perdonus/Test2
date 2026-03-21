@@ -12,6 +12,7 @@ import com.perdonus.r34viewer.data.model.Rule34Post
 data class FavoritePostEntity(
     val serviceId: String,
     val id: String,
+    val title: String,
     val previewUrl: String?,
     val sampleUrl: String?,
     val fileUrl: String,
@@ -30,6 +31,7 @@ data class FavoritePostEntity(
 fun FavoritePostEntity.toDomain(): Rule34Post = Rule34Post(
     service = BooruService.fromId(serviceId),
     id = id,
+    title = title,
     previewUrl = previewUrl,
     sampleUrl = sampleUrl,
     fileUrl = fileUrl,
@@ -47,6 +49,7 @@ fun FavoritePostEntity.toDomain(): Rule34Post = Rule34Post(
 fun Rule34Post.toEntity(savedAt: Long = System.currentTimeMillis()): FavoritePostEntity = FavoritePostEntity(
     serviceId = service.id,
     id = id,
+    title = title,
     previewUrl = previewUrl,
     sampleUrl = sampleUrl,
     fileUrl = fileUrl,

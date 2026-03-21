@@ -26,6 +26,9 @@ class BooruApiException(message: String) : Exception(message)
 class BooruApiSource(
     private val networkClientFactory: NetworkClientFactory,
 ) {
+    private val browserUserAgent =
+        "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
@@ -49,6 +52,7 @@ class BooruApiSource(
         val request = Request.Builder()
             .url(buildUrl(service, query, page, limit, settings.serviceApiConfig))
             .get()
+            .applyServiceHeaders(service)
             .build()
 
         client.newCall(request).execute().use { response ->
@@ -140,7 +144,7 @@ class BooruApiSource(
             .addOptionalTags(query)
             .build()
 
-        BooruService.PORNHUB -> "https://www.pornhub.com/webmasters/search".toHttpUrl().newBuilder()
+        BooruService.PORNHUB -> "https://rt.pornhub.org/webmasters/search".toHttpUrl().newBuilder()
             .addQueryParameter("page", (page + 1).toString())
             .addQueryParameter("thumbsize", "medium")
             .addOptionalQueryParameter("search", query)
@@ -172,6 +176,36 @@ class BooruApiSource(
         value: String,
     ): okhttp3.HttpUrl.Builder {
         return if (value.isBlank()) this else addQueryParameter(name, value)
+    }
+
+    private fun Request.Builder.applyServiceHeaders(service: BooruService): Request.Builder = apply {
+        when (service) {
+            BooruService.PORNHUB -> {
+                header("User-Agent", browserUserAgent)
+                header("Accept", "application/json")
+                header("Referer", "https://rt.pornhub.org/")
+            }
+
+            BooruService.REDTUBE -> {
+                header("User-Agent", browserUserAgent)
+                header("Accept", "application/json")
+                header("Referer", "https://www.redtube.com/")
+            }
+
+            BooruService.EPORNER -> {
+                header("User-Agent", browserUserAgent)
+                header("Accept", "application/json")
+                header("Referer", "https://www.eporner.com/")
+            }
+
+            BooruService.TBIB -> {
+                header("User-Agent", browserUserAgent)
+                header("Accept", "application/json,text/plain,*/*")
+                header("Referer", "https://tbib.org/")
+            }
+
+            else -> Unit
+        }
     }
 
     private fun parsePosts(
@@ -230,6 +264,7 @@ class BooruApiSource(
         return Rule34Post(
             service = service,
             id = id,
+            title = "",
             previewUrl = content["preview_url"].primitiveContentOrNull(),
             sampleUrl = content["sample_url"].primitiveContentOrNull(),
             fileUrl = fileUrl,
@@ -251,13 +286,15 @@ class BooruApiSource(
         val previewUrl = content["thumb"].primitiveContentOrNull()
         val defaultThumb = content["default_thumb"].primitiveContentOrNull()
         if (id.isBlank() || pageUrl.isBlank()) return null
+        val normalizedPageUrl = pageUrl.replace("www.pornhub.com", "rt.pornhub.org")
         return Rule34Post(
             service = BooruService.PORNHUB,
             id = id,
+            title = content["title"].primitiveContentOrNull().orEmpty(),
             previewUrl = previewUrl ?: defaultThumb,
             sampleUrl = defaultThumb ?: previewUrl,
-            fileUrl = pageUrl,
-            pageUrl = pageUrl,
+            fileUrl = normalizedPageUrl,
+            pageUrl = normalizedPageUrl,
             embedUrl = "https://www.pornhub.com/embed/$id",
             tags = buildList {
                 addAll(content["tags"].objectArrayTags("tag_name"))
@@ -285,11 +322,12 @@ class BooruApiSource(
         return Rule34Post(
             service = BooruService.REDTUBE,
             id = id,
+            title = content["title"].primitiveContentOrNull().orEmpty(),
             previewUrl = previewUrl ?: defaultThumb,
             sampleUrl = defaultThumb ?: previewUrl,
             fileUrl = pageUrl,
             pageUrl = pageUrl,
-            embedUrl = embedUrl,
+            embedUrl = embedUrl?.takeIf { it.startsWith("http") } ?: "https://embed.redtube.com/?id=$id",
             tags = buildList {
                 addAll(content["tags"].objectArrayTags("tag_name"))
                 addAll(content["categories"].objectArrayTags("category"))
@@ -316,14 +354,17 @@ class BooruApiSource(
                 ?.let { it as? JsonObject }
                 ?.get("src")
                 .primitiveContentOrNull()
+        val embedRaw = content["embed"].primitiveContentOrNull().orEmpty()
+        val embedUrl = extractEmbedSrc(embedRaw) ?: "https://www.eporner.com/embed/$id"
         return Rule34Post(
             service = BooruService.EPORNER,
             id = id,
+            title = content["title"].primitiveContentOrNull().orEmpty(),
             previewUrl = previewUrl,
             sampleUrl = previewUrl,
             fileUrl = pageUrl,
             pageUrl = pageUrl,
-            embedUrl = content["embed"].primitiveContentOrNull(),
+            embedUrl = embedUrl,
             tags = parseDelimitedTags(content["keywords"].primitiveContentOrNull()),
             rating = "adult",
             score = content["views"].primitiveIntOrZero(),
@@ -351,6 +392,21 @@ class BooruApiSource(
             .map(::normalizeTag)
             .filter { it.isNotBlank() }
             .distinct()
+    }
+
+    private fun extractEmbedSrc(raw: String): String? {
+        if (raw.isBlank()) return null
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+            return raw
+        }
+        val match = Regex("src=['\\\"]([^'\\\"]+)['\\\"]").find(raw)?.groupValues?.getOrNull(1)
+        return match?.let {
+            when {
+                it.startsWith("http://") || it.startsWith("https://") -> it
+                it.startsWith("//") -> "https:$it"
+                else -> null
+            }
+        }
     }
 
     private fun JsonElement?.objectArrayTags(fieldName: String): List<String> {
@@ -412,10 +468,18 @@ class BooruPagingSource(
                 page = page,
                 limit = pageSize,
             )
+            val hasNextPage = when (settings.selectedService) {
+                BooruService.PORNHUB,
+                BooruService.REDTUBE,
+                BooruService.EPORNER,
+                -> posts.isNotEmpty()
+
+                else -> posts.size >= pageSize
+            }
             LoadResult.Page(
                 data = posts,
                 prevKey = if (page == 0) null else page - 1,
-                nextKey = if (posts.size < pageSize) null else page + 1,
+                nextKey = if (hasNextPage) page + 1 else null,
             )
         } catch (exception: Exception) {
             LoadResult.Error(exception)

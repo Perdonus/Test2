@@ -109,6 +109,7 @@ class RuleServerStore {
             body = buildJsonObject {
                 put("serviceId", JsonPrimitive(post.service.id))
                 put("id", JsonPrimitive(post.id))
+                put("title", JsonPrimitive(post.title))
                 put("previewUrl", post.previewUrl?.let(::JsonPrimitive) ?: JsonNull)
                 put("sampleUrl", post.sampleUrl?.let(::JsonPrimitive) ?: JsonNull)
                 put("fileUrl", JsonPrimitive(post.fileUrl))
@@ -421,6 +422,7 @@ class RuleServerStore {
         return Rule34Post(
             service = BooruService.fromId(root["serviceId"].asStringOrNull()),
             id = id,
+            title = root["title"].asStringOrNull().orEmpty(),
             previewUrl = root["previewUrl"].asStringOrNull(),
             sampleUrl = root["sampleUrl"].asStringOrNull(),
             fileUrl = fileUrl,

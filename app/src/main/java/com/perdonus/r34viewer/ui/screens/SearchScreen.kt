@@ -60,7 +60,6 @@ import androidx.paging.LoadState
 import androidx.paging.LoadState.NotLoading
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemContentType
-import androidx.paging.compose.itemKey
 import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.data.model.Rule34Post
 import com.perdonus.r34viewer.data.settings.AppSettings
@@ -96,6 +95,10 @@ fun SearchScreen(
 ) {
     var showAiDialog by rememberSaveable { mutableStateOf(false) }
     var isSearchFieldFocused by rememberSaveable { mutableStateOf(false) }
+    val triggerRegularSearch = {
+        isSearchFieldFocused = false
+        onSearch()
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         ScreenHeader(
@@ -126,12 +129,12 @@ fun SearchScreen(
                         singleLine = true,
                         label = { Text("Поиск по имени или тегам") },
                         trailingIcon = {
-                            IconButton(onClick = onSearch, enabled = !isResolvingQuery) {
+                            IconButton(onClick = triggerRegularSearch, enabled = !isResolvingQuery) {
                                 Icon(Icons.Outlined.Search, contentDescription = "Запустить поиск")
                             }
                         },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                        keyboardActions = KeyboardActions(onSearch = { triggerRegularSearch() }),
                     )
 
                     Text(
@@ -156,7 +159,7 @@ fun SearchScreen(
                     ) {
                         SearchActionButton(
                             enabled = !isResolvingQuery,
-                            onClick = onSearch,
+                            onClick = triggerRegularSearch,
                             onLongClick = {
                                 if (query.isNotBlank()) {
                                     showAiDialog = true
@@ -267,7 +270,14 @@ fun SearchScreen(
                 else -> {
                     items(
                         count = pagingItems.itemCount,
-                        key = pagingItems.itemKey { it.serviceScopedId },
+                        key = { index ->
+                            val post = pagingItems[index]
+                            if (post == null) {
+                                "placeholder_$index"
+                            } else {
+                                "${post.serviceScopedId}_$index"
+                            }
+                        },
                         contentType = pagingItems.itemContentType { it.mediaType.name },
                     ) { index ->
                         val post = pagingItems[index] ?: return@items

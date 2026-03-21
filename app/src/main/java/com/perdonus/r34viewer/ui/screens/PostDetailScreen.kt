@@ -301,6 +301,9 @@ fun PostDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text("Информация", style = MaterialTheme.typography.titleMedium)
+                            if (post.title.isNotBlank()) {
+                                Text(post.title, style = MaterialTheme.typography.bodyMedium)
+                            }
                             Text("Тип: ${if (post.isVideo) "Видео" else "Изображение"}")
                             Text("Сервис: ${post.service.displayName}")
                             Text("Рейтинг: ${post.rating.uppercase()}")

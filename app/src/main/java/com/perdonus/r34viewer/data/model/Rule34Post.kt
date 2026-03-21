@@ -6,6 +6,7 @@ private const val AI_ASSISTED_TAG = "ai_assisted"
 data class Rule34Post(
     val service: BooruService,
     val id: String,
+    val title: String = "",
     val previewUrl: String?,
     val sampleUrl: String?,
     val fileUrl: String,

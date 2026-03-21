@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.perdonus.r34viewer.data.model.BooruService
 import com.perdonus.r34viewer.ui.components.ScreenHeader
 import com.perdonus.r34viewer.ui.viewmodel.PreferencesUiState
 
@@ -48,6 +49,12 @@ fun PreferencesScreen(
     onRemoveBlocked: (String) -> Unit,
     onDismissMessage: () -> Unit,
 ) {
+    val supportsTagPreferences = state.selectedService in setOf(
+        BooruService.RULE34,
+        BooruService.KONACHAN,
+        BooruService.XBOORU,
+    )
+
     LaunchedEffect(state.selectedService) {
         onRefreshCatalog()
     }
@@ -77,10 +84,10 @@ fun PreferencesScreen(
                     ) {
                         Text("Что подмешивать в поиск", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            if (state.selectedService.usesTagSearch) {
-                                "Предпочтения применяются ко всем поискам на ${state.selectedService.displayName}. Для booru-сервисов они подмешиваются как обычные теги и исключения вида -tag."
+                            if (supportsTagPreferences) {
+                                "Предпочтения применяются к поиску на ${state.selectedService.displayName}. Теги подмешиваются как обычные теги и исключения вида -tag."
                             } else {
-                                "Предпочтения применяются ко всем поискам на ${state.selectedService.displayName}. Для видео-сервисов любимые темы добавляются в текст запроса, а скрытые темы дополнительно отфильтровываются по найденным тегам."
+                                "На ${state.selectedService.displayName} предпочтения не подмешиваются в запрос. Они работают только на Rule34, Konachan и xBooru."
                             },
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -195,7 +202,7 @@ fun PreferencesScreen(
                         ) {
                             Button(
                                 onClick = { onAddPreferred(item.tag) },
-                                enabled = item.tag !in state.preferredTags,
+                                enabled = supportsTagPreferences && item.tag !in state.preferredTags,
                                 modifier = Modifier.weight(1f),
                             ) {
                                 Icon(
@@ -208,7 +215,7 @@ fun PreferencesScreen(
                             }
                             Button(
                                 onClick = { onAddBlocked(item.tag) },
-                                enabled = item.tag !in state.blockedTags,
+                                enabled = supportsTagPreferences && item.tag !in state.blockedTags,
                                 modifier = Modifier.weight(1f),
                             ) {
                                 Icon(

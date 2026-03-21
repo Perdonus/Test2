@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.graphics.Color as AndroidColor
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -254,12 +255,27 @@ private fun PlayerView.applyPlayerChrome(): PlayerView = apply {
 
 private fun WebView.applyVideoWebView(url: String): WebView = apply {
     setBackgroundColor(AndroidColor.BLACK)
+    val cookieManager = CookieManager.getInstance()
+    cookieManager.setAcceptCookie(true)
+    cookieManager.setAcceptThirdPartyCookies(this, true)
     settings.javaScriptEnabled = true
     settings.domStorageEnabled = true
     settings.mediaPlaybackRequiresUserGesture = false
     settings.loadsImagesAutomatically = true
     settings.cacheMode = WebSettings.LOAD_DEFAULT
-    webViewClient = object : WebViewClient() {}
+    settings.allowContentAccess = true
+    settings.allowFileAccess = false
+    settings.userAgentString =
+        "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+    settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+    settings.javaScriptCanOpenWindowsAutomatically = true
+    settings.setSupportMultipleWindows(false)
+    webViewClient = object : WebViewClient() {
+        override fun shouldOverrideUrlLoading(
+            view: WebView?,
+            url: String?,
+        ): Boolean = false
+    }
     webChromeClient = WebChromeClient()
     loadUrl(url)
 }
