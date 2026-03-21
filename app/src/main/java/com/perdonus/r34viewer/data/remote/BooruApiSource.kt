@@ -180,6 +180,18 @@ class BooruApiSource(
 
     private fun Request.Builder.applyServiceHeaders(service: BooruService): Request.Builder = apply {
         when (service) {
+            BooruService.KONACHAN -> {
+                header("User-Agent", browserUserAgent)
+                header("Accept", "application/json,text/plain,*/*")
+                header("Referer", "https://konachan.com/")
+            }
+
+            BooruService.XBOORU -> {
+                header("User-Agent", browserUserAgent)
+                header("Accept", "application/json,text/plain,*/*")
+                header("Referer", "https://xbooru.com/")
+            }
+
             BooruService.PORNHUB -> {
                 header("User-Agent", browserUserAgent)
                 header("Accept", "application/json")
