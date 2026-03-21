@@ -106,13 +106,14 @@ fun PostDetailScreen(
     val openBrowserPage = remember(post, context) {
         {
             val targetUrl = post.pageUrl ?: post.playbackUrl
-            runCatching {
+            val opened = runCatching {
                 context.startActivity(
                     Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     },
                 )
-            }.onFailure {
+            }.isSuccess
+            if (!opened) {
                 Toast.makeText(
                     context,
                     "Не удалось открыть страницу видео.",
