@@ -32,7 +32,7 @@ class SearchQueryBuilderTest {
     }
 
     @Test
-    fun `text services keep only positive query terms`() {
+    fun `text services keep only positive query terms without preference tags`() {
         val result = SearchQueryBuilder.build(
             service = BooruService.PORNHUB,
             query = "rukia -ai_generated",
@@ -43,7 +43,7 @@ class SearchQueryBuilderTest {
             ),
         )
 
-        assertEquals("rukia big ass", result)
+        assertEquals("rukia", result)
     }
 
     @Test
