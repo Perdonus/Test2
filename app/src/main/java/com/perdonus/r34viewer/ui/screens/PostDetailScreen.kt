@@ -1,6 +1,8 @@
 package com.perdonus.r34viewer.ui.screens
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -100,6 +103,24 @@ fun PostDetailScreen(
 
     val context = LocalContext.current
     val hasDirectVideoPlayback = post.isVideo && post.hasDirectMedia && post.service.supportsDirectMediaPlayback
+    val openBrowserPage = remember(post, context) {
+        {
+            val targetUrl = post.pageUrl ?: post.playbackUrl
+            runCatching {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    },
+                )
+            }.onFailure {
+                Toast.makeText(
+                    context,
+                    "Не удалось открыть страницу видео.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
     val startDownload = remember(post, context) {
         {
             if (!post.canDownloadDirectly) {
@@ -170,6 +191,14 @@ fun PostDetailScreen(
                     }
                 },
                 actions = {
+                    if (!post.hasDirectMedia && post.pageUrl != null) {
+                        IconButton(onClick = openBrowserPage) {
+                            Icon(
+                                imageVector = Icons.Outlined.OpenInNew,
+                                contentDescription = "Открыть страницу видео",
+                            )
+                        }
+                    }
                     if (post.canDownloadDirectly) {
                         IconButton(
                             onClick = {

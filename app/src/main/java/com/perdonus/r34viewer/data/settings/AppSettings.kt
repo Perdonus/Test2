@@ -72,3 +72,17 @@ data class AppSettings(
     val preferenceCatalog: List<PreferenceCatalogItem> = emptyList(),
     val preferenceTitles: Map<String, String> = emptyMap(),
 )
+
+fun AppSettings.asSearchSettings(): AppSettings {
+    val tagPreferenceServices = setOf(
+        BooruService.RULE34,
+        BooruService.KONACHAN,
+        BooruService.XBOORU,
+    )
+    return copy(
+        serviceApiConfig = serviceApiConfig.copy(ai = AiApiConfig()),
+        preferences = if (selectedService in tagPreferenceServices) preferences else ContentPreferences(),
+        preferenceCatalog = emptyList(),
+        preferenceTitles = emptyMap(),
+    )
+}

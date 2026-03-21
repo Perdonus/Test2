@@ -250,12 +250,14 @@ class BooruApiSource(
         }
         val blockedTags = buildBlockedTags(preferences)
 
-        return posts.filter { post ->
-            if (hideAiContent && post.areTagsAiRelated) {
-                return@filter false
+        return posts
+            .filter { post ->
+                if (hideAiContent && post.areTagsAiRelated) {
+                    return@filter false
+                }
+                blockedTags.none { it in post.normalizedTags }
             }
-            blockedTags.none { it in post.normalizedTags }
-        }
+            .distinctBy { it.listKey }
     }
 
     private fun JsonElement.asBooruPostOrNull(

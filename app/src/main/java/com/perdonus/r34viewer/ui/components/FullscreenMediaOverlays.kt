@@ -10,6 +10,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -90,8 +91,8 @@ fun EmbeddedWebVideoPlayer(
             WebView(context).applyVideoWebView(url)
         },
         update = { webView ->
-            if (webView.url != url) {
-                webView.loadUrl(url)
+            if (webView.tag != url) {
+                webView.applyVideoWebView(url)
             }
         },
     )
@@ -258,6 +259,7 @@ private fun WebView.applyVideoWebView(url: String): WebView = apply {
     val cookieManager = CookieManager.getInstance()
     cookieManager.setAcceptCookie(true)
     cookieManager.setAcceptThirdPartyCookies(this, true)
+    tag = url
     settings.javaScriptEnabled = true
     settings.domStorageEnabled = true
     settings.mediaPlaybackRequiresUserGesture = false
@@ -270,6 +272,9 @@ private fun WebView.applyVideoWebView(url: String): WebView = apply {
     settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
     settings.javaScriptCanOpenWindowsAutomatically = true
     settings.setSupportMultipleWindows(false)
+    settings.useWideViewPort = true
+    settings.loadWithOverviewMode = true
+    overScrollMode = View.OVER_SCROLL_NEVER
     webViewClient = object : WebViewClient() {
         override fun shouldOverrideUrlLoading(
             view: WebView?,
@@ -277,7 +282,49 @@ private fun WebView.applyVideoWebView(url: String): WebView = apply {
         ): Boolean = false
     }
     webChromeClient = WebChromeClient()
-    loadUrl(url)
+    val wrapperHtml = buildEmbeddedVideoHtml(url)
+    val baseUrl = url.substringBefore("?", url).substringBeforeLast("/", url).ifBlank { url }
+    loadDataWithBaseURL(baseUrl, wrapperHtml, "text/html", "utf-8", null)
+}
+
+private fun buildEmbeddedVideoHtml(url: String): String {
+    val escapedUrl = android.text.Html.escapeHtml(url)
+    return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+            <style>
+                html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: #000;
+                    overflow: hidden;
+                }
+                .frame {
+                    position: fixed;
+                    inset: 0;
+                    border: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: #000;
+                }
+            </style>
+        </head>
+        <body>
+            <iframe
+                class="frame"
+                src="$escapedUrl"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowfullscreen
+                referrerpolicy="origin"
+            ></iframe>
+        </body>
+        </html>
+    """.trimIndent()
 }
 
 private fun clampImageOffset(

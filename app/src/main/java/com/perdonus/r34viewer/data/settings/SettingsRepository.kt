@@ -94,7 +94,7 @@ class SettingsRepositoryImpl(
 
     private fun toLocalSettings(preferences: Preferences): LocalSettings {
         return LocalSettings(
-            selectedService = BooruService.fromId(preferences[Keys.SelectedService]),
+            selectedService = BooruService.fromId(preferences[Keys.SelectedService]).asSelectableOrDefault(),
             hideAiContent = preferences[Keys.HideAiContent] ?: false,
         )
     }

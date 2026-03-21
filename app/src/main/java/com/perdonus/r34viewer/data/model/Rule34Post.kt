@@ -23,6 +23,14 @@ data class Rule34Post(
     val serviceScopedId: String
         get() = "${service.id}:$id"
 
+    val listKey: String
+        get() = listOf(
+            serviceScopedId,
+            playbackUrl.ifBlank { fileUrl },
+            previewUrl.orEmpty(),
+            sampleUrl.orEmpty(),
+        ).joinToString("|")
+
     val thumbnailUrl: String
         get() = previewUrl ?: sampleUrl ?: pageUrl ?: embedUrl ?: fileUrl
 

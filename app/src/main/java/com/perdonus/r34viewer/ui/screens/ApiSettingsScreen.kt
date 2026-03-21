@@ -147,7 +147,7 @@ fun ApiSettingsScreen(
                 ) {
                     Text("Сервисы без ключей", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "xBooru, TBIB, Eporner, Pornhub и RedTube сейчас работают без отдельного API key. Их настройки берутся автоматически.",
+                        "xBooru и Pornhub сейчас работают без отдельного API key. Их настройки берутся автоматически. TBIB, Eporner и RedTube пока убраны из клиента, пока для них не будет серверного прокси.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

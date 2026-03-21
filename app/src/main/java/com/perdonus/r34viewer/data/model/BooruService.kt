@@ -16,6 +16,7 @@ enum class BooruService(
     val supportsVideo: Boolean,
     val searchSyntax: SearchSyntax,
     val playbackMode: PlaybackMode,
+    val isSelectableInClient: Boolean = true,
 ) {
     RULE34(
         id = "rule34",
@@ -51,6 +52,7 @@ enum class BooruService(
         supportsVideo = true,
         searchSyntax = SearchSyntax.TAGS,
         playbackMode = PlaybackMode.DIRECT_MEDIA,
+        isSelectableInClient = false,
     ),
     EPORNER(
         id = "eporner",
@@ -58,6 +60,7 @@ enum class BooruService(
         supportsVideo = true,
         searchSyntax = SearchSyntax.TEXT,
         playbackMode = PlaybackMode.EMBEDDED_PAGE,
+        isSelectableInClient = false,
     ),
     REDTUBE(
         id = "redtube",
@@ -65,6 +68,7 @@ enum class BooruService(
         supportsVideo = true,
         searchSyntax = SearchSyntax.TEXT,
         playbackMode = PlaybackMode.EMBEDDED_PAGE,
+        isSelectableInClient = false,
     ),
     ;
 
@@ -78,5 +82,9 @@ enum class BooruService(
         fun fromId(id: String?): BooruService {
             return entries.firstOrNull { it.id == id } ?: RULE34
         }
+    }
+
+    fun asSelectableOrDefault(): BooruService {
+        return if (isSelectableInClient) this else RULE34
     }
 }

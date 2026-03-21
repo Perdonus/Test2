@@ -19,7 +19,7 @@ class PostsRepository(
                 initialLoadSize = PAGE_SIZE,
                 enablePlaceholders = false,
                 prefetchDistance = 4,
-                maxSize = PAGE_SIZE * 4,
+                maxSize = PagingConfig.MAX_SIZE_UNBOUNDED,
             ),
             pagingSourceFactory = {
                 BooruPagingSource(

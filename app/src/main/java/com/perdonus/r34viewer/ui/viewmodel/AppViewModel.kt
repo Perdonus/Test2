@@ -33,6 +33,7 @@ import com.perdonus.r34viewer.data.settings.Rule34ApiConfig
 import com.perdonus.r34viewer.data.settings.ServiceApiConfig
 import com.perdonus.r34viewer.data.settings.SettingsRepository
 import com.perdonus.r34viewer.data.settings.SettingsValidator
+import com.perdonus.r34viewer.data.settings.asSearchSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -103,7 +104,16 @@ class SearchViewModel(
         emptySet<String>(),
     )
 
-    val pagingData = combine(_searchRequest, settings) { request, appSettings ->
+    private val searchSettings = settings
+        .map(AppSettings::asSearchSettings)
+        .distinctUntilChanged()
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            AppSettings().asSearchSettings(),
+        )
+
+    val pagingData = combine(_searchRequest, searchSettings) { request, appSettings ->
         request to appSettings
     }.flatMapLatest { (request, appSettings) ->
         if (request.nonce == 0L) {

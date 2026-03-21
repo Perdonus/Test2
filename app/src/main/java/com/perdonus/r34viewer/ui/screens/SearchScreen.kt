@@ -187,7 +187,7 @@ fun SearchScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        BooruService.entries.forEach { service ->
+                        BooruService.entries.filter { it.isSelectableInClient }.forEach { service ->
                             FilterChip(
                                 selected = settings.selectedService == service,
                                 onClick = { onSelectService(service) },
@@ -275,7 +275,7 @@ fun SearchScreen(
                             if (post == null) {
                                 "placeholder_$index"
                             } else {
-                                "${post.serviceScopedId}_$index"
+                                post.listKey
                             }
                         },
                         contentType = pagingItems.itemContentType { it.mediaType.name },
